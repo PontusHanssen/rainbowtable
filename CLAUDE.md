@@ -152,6 +152,7 @@ Word-facing logic lives in `src/word/` and stays free of React; components call 
 
 | | |
 |---|---|
+| `npm test` | compile `src/word` + `test` and run the node:test suite |
 | `npm run dev-server` | webpack dev server on https://localhost:3000 |
 | `npm run build` | production bundle into `dist/` |
 | `npm run validate` | validate `manifest.xml` |
@@ -166,8 +167,16 @@ Linux. Develop with `npm run dev-server` plus manual sideloading in Word on the 
 - Everything runs inside `Word.run(async context => …)`. Batch property loads; call
   `context.sync()` as few times as the logic allows — sync count is the main performance
   lever in Office.js.
-- Test against `Security Review Template V3.1.docx` in the repo root. Changes to sorting or
-  parsing must be checked against it before being called done.
+- Test against `Security Review Template V3.1.docx` (kept locally, not in the repo, since
+  `*.docx` is ignored). Changes to sorting or parsing must be checked against it before
+  being called done.
+- `npm test` covers the pure logic only — parsing, ordering, block boundaries — using
+  node:test with no extra dependencies. Keep Word-facing code thin enough that the part
+  worth testing stays pure. **Nothing that touches Office.js is covered**, so the OOXML
+  round trip and range handling still need a real document.
+- `test/fixtures/template.ts` mirrors the real template's heading outline. Note it repeats
+  the title "Vulnerabilities" at two depths, which is why sections are identified by
+  paragraph index and level rather than by title.
 - Verify in **Word on the web** as well as the desktop client; OOXML, bookmark and list
   APIs behave differently between them.
 - Any change touching the table or sorting needs a **PDF export check**: cross-references

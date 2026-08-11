@@ -51,6 +51,29 @@ const useStyles = makeStyles({
 
 const describe = ({ title, reason }: SkippedFinding) => `"${title}" — ${reason}`;
 
+/**
+ * Identifies a section in the dropdown. Titles repeat in real reports — the template
+ * has "Vulnerabilities" as both a summary subsection and a findings section — so the
+ * paragraph index is what keeps them apart.
+ */
+const key = (section: Section) => String(section.heading.index);
+
+/** Re-find the selected section after a rescan, whose paragraph indexes may have moved. */
+function reselect(sections: Section[], previous: Section): Section | undefined {
+  return (
+    sections.find(
+      (section) =>
+        section.heading.index === previous.heading.index &&
+        section.heading.text === previous.heading.text
+    ) ??
+    sections.find(
+      (section) =>
+        section.heading.text === previous.heading.text &&
+        section.heading.level === previous.heading.level
+    )
+  );
+}
+
 const App: React.FC = () => {
   const styles = useStyles();
   const [sections, setSections] = React.useState<Section[]>([]);
@@ -67,9 +90,7 @@ const App: React.FC = () => {
   const scan = React.useCallback(async (announce: boolean) => {
     const found = findSections(await getHeadings());
     setSections(found);
-    setSelected((current) =>
-      found.find((section) => section.heading.text === current?.heading.text)
-    );
+    setSelected((current) => (current ? reselect(found, current) : undefined));
     if (announce) {
       setStatus(`${found.length} section${found.length === 1 ? "" : "s"} with findings.`);
     }
@@ -158,11 +179,11 @@ const App: React.FC = () => {
           selectedOptions={selected ? [selected.heading.text] : []}
           onOptionSelect={(_event, data) => {
             setUnconfirmed(undefined);
-            setSelected(sections.find((section) => section.heading.text === data.optionValue));
+            setSelected(sections.find((section) => key(section) === data.optionValue));
           }}
         >
           {sections.map((section) => (
-            <Option key={section.heading.index} value={section.heading.text}>
+            <Option key={key(section)} value={key(section)} text={section.heading.text}>
               {`${section.heading.text} (${section.findings.length})`}
             </Option>
           ))}

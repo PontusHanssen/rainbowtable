@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "outDir": "dist-test",
+    "sourceMap": false,
+    "types": ["office-js", "node"]
+  },
+  "include": ["src/word/**/*.ts", "test/**/*.ts"]
+}

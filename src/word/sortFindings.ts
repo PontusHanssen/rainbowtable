@@ -18,7 +18,7 @@ export interface SortPreview {
 }
 
 /** A finding and the span of paragraphs it owns, inclusive. */
-interface Block {
+export interface Block {
   heading: Heading;
   start: number;
   end: number;
@@ -164,9 +164,9 @@ function locateSection(headings: Heading[], section: Section): number {
 
 /**
  * The paragraph span each finding owns: from its heading up to the next finding, or to
- * the end of the section for the last one.
+ * the end of the section for the last one. Exported for testing.
  */
-function buildBlocks(
+export function buildBlocks(
   headings: Heading[],
   position: number,
   findings: Heading[],
