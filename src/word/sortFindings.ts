@@ -1,7 +1,8 @@
 import { Heading, Section, childHeadings, toHeadings } from "./headings";
+import { reorderFindings } from "./ooxml";
 import { Risk, compareRisk, isRiskHeading, parseRisk } from "./severity";
 
-/* global Word, OfficeExtension */
+/* global Word */
 
 export interface SkippedFinding {
   title: string;
@@ -101,40 +102,26 @@ export async function sortFindings(section: Section): Promise<SortResult> {
       return summary;
     }
 
-    // Capture each block's OOXML before touching the document; a round trip through
-    // OOXML is what preserves tables, images and code blocks inside a finding.
-    const ranges = new Map<Block, Word.Range>();
-    const ooxml = new Map<Block, OfficeExtension.ClientResult<string>>();
-    blocks.forEach((block) => {
-      const range = spanRange(paragraphs, block.start, block.end);
-      ranges.set(block, range);
-      ooxml.set(block, range.getOoxml());
-    });
-    const snapshot = spanRange(
-      paragraphs,
-      blocks[0].start,
-      blocks[blocks.length - 1].end
-    ).getOoxml();
-    await context.sync();
-
-    // Remove every block, then re-insert them immediately after the section heading in
-    // reverse order: each insert pushes the previous one down, so they land in order.
-    const anchor = paragraphs.items[sectionHeading.index].getRange("Whole");
-    blocks.forEach((block) => (ranges.get(block) as Word.Range).delete());
-    [...planOrder(blocks)]
-      .reverse()
-      .forEach((block) =>
-        anchor.insertOoxml(
-          (ooxml.get(block) as OfficeExtension.ClientResult<string>).value,
-          Word.InsertLocation.after
-        )
-      );
+    // Capture the whole findings region in one piece. Reordering happens inside this
+    // package and goes back as a single Replace: inserting the findings one at a time
+    // merges every seam, putting the tail of one finding into the next one's heading.
+    const region = spanRange(paragraphs, blocks[0].start, blocks[blocks.length - 1].end);
+    const captured = region.getOoxml();
     await context.sync();
 
     // getOoxml() hands back a ClientResult, which is filled in by the sync above and
     // needs no load() — the office-addins lint rule cannot tell the two apart.
     // eslint-disable-next-line office-addins/load-object-before-read
-    return { ...summary, snapshot: snapshot.value };
+    const snapshot = captured.value;
+    const order = planOrder(blocks).map((block) => blocks.indexOf(block));
+
+    region.insertOoxml(
+      reorderFindings(snapshot, sectionHeading.level + 1, order),
+      Word.InsertLocation.replace
+    );
+    await context.sync();
+
+    return { ...summary, snapshot };
   });
 }
 
