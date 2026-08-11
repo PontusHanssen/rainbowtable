@@ -36,21 +36,27 @@ function headingLevel(styleBuiltIn: Word.Style | string): number {
   return match ? Number(match[1]) : 0;
 }
 
+/** The headings among a loaded paragraph collection. Requires styleBuiltIn and text. */
+export function toHeadings(
+  paragraphs: { styleBuiltIn: Word.Style | string; text: string }[]
+): Heading[] {
+  const headings: Heading[] = [];
+  paragraphs.forEach((paragraph, index) => {
+    const level = headingLevel(paragraph.styleBuiltIn);
+    if (level > 0) {
+      headings.push({ index, level, text: paragraph.text.trim() });
+    }
+  });
+  return headings;
+}
+
 /** Every heading in the document, in document order. */
 export async function getHeadings(): Promise<Heading[]> {
   return Word.run(async (context) => {
     const paragraphs = context.document.body.paragraphs;
     paragraphs.load("items/styleBuiltIn,items/text");
     await context.sync();
-
-    const headings: Heading[] = [];
-    paragraphs.items.forEach((paragraph, index) => {
-      const level = headingLevel(paragraph.styleBuiltIn);
-      if (level > 0) {
-        headings.push({ index, level, text: paragraph.text.trim() });
-      }
-    });
-    return headings;
+    return toHeadings(paragraphs.items);
   });
 }
 

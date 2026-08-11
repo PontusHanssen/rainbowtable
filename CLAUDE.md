@@ -89,6 +89,11 @@ Informational, Low, Medium, High, Critical, and the `(<score>)` part is **option
 - A finding whose Risk heading is missing, unparseable, or still `[TODO]` is **not
   guessed at**. Leave it in place, and report it to the user in the taskpane as
   unprocessed, naming the finding. Silent mis-parses are worse than a visible skip.
+- **Report unreadable findings before editing anything.** Any command that modifies the
+  document runs a read-only pass first (`previewSort` and its equivalents); if a finding
+  in the selected section cannot be parsed, the taskpane names it and waits for the user
+  to confirm. The user then either fixes the document or accepts that those findings stay
+  put — but never discovers it after the edit has already happened.
 - Sort order: Critical, High, Medium, Low, Informational; within a severity, higher score
   first; findings with equal or absent scores keep their original relative order (stable
   sort).
@@ -136,8 +141,9 @@ manifest.xml              add-in manifest; localhost URLs must become SharePoint
 src/taskpane/             React entry point + taskpane shell
 src/taskpane/components/App.tsx   section picker and the two command buttons
 src/word/headings.ts      heading scan and the relative section/finding model
-src/word/sortFindings.ts       feature 1 — not implemented
-src/word/findingsTable.ts      feature 2 — not implemented
+src/word/severity.ts      strict `Risk:` parsing and the sort comparator
+src/word/sortFindings.ts  feature 1 — previewSort (read-only) and sortFindings (edits)
+src/word/findingsTable.ts feature 2 — not implemented
 ```
 
 Word-facing logic lives in `src/word/` and stays free of React; components call into it.
