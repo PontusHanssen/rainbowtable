@@ -1,5 +1,8 @@
 /* eslint-disable no-undef */
 
+const fs = require("fs");
+const os = require("os");
+const path = require("path");
 const devCerts = require("office-addin-dev-certs");
 const CopyWebpackPlugin = require("copy-webpack-plugin");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
@@ -8,7 +11,21 @@ const webpack = require("webpack");
 const urlDev = "https://localhost:3000/";
 const urlProd = "https://www.contoso.com/"; // CHANGE THIS TO YOUR PRODUCTION DEPLOYMENT LOCATION
 
+// office-addin-dev-certs installs its CA into a trust path that does not exist on
+// Fedora, and getHttpsServerOptions() retries that install on every start — which hangs
+// the dev server. Once the certificates exist, read them straight off disk instead.
+// Generate them with `npx office-addin-dev-certs install` (the CA install step may fail;
+// the certificates are still written) and trust ca.crt in whichever browser you use.
 async function getHttpsOptions() {
+  const certDir = path.join(os.homedir(), ".office-addin-dev-certs");
+  const [ca, key, cert] = ["ca.crt", "localhost.key", "localhost.crt"].map((file) =>
+    path.join(certDir, file)
+  );
+
+  if ([ca, key, cert].every((file) => fs.existsSync(file))) {
+    return { ca: fs.readFileSync(ca), key: fs.readFileSync(key), cert: fs.readFileSync(cert) };
+  }
+
   const httpsOptions = await devCerts.getHttpsServerOptions();
   return { ca: httpsOptions.ca, key: httpsOptions.key, cert: httpsOptions.cert };
 }
@@ -101,7 +118,10 @@ module.exports = async (env, options) => {
       },
       server: {
         type: "https",
-        options: env.WEBPACK_BUILD || options.https !== undefined ? options.https : await getHttpsOptions(),
+        options:
+          env.WEBPACK_BUILD || options.https !== undefined
+            ? options.https
+            : await getHttpsOptions(),
       },
       port: process.env.npm_package_config_dev_server_port || 3000,
     },
