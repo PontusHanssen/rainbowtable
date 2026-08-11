@@ -48,19 +48,48 @@ function tokenRun(token: Token): string {
   return `<w:r><w:rPr>${properties}</w:rPr><w:t xml:space="preserve">${escapeXml(token.text)}</w:t></w:r>`;
 }
 
+/**
+ * Single-spaced with nothing above or below, stated directly rather than left to the
+ * style: a code block set at the document's body spacing reads as a list of stray lines.
+ * `contextualSpacing` is what lets consecutive lines merge into one continuous box.
+ */
+const CODE_SPACING =
+  '<w:spacing w:before="0" w:after="0" w:line="240" w:lineRule="auto"/><w:contextualSpacing/>';
+
 function codeParagraph(tokens: Token[]): string {
   return (
-    `<w:p><w:pPr><w:pStyle w:val="${CODE_STYLE}"/></w:pPr>` +
+    `<w:p><w:pPr><w:pStyle w:val="${CODE_STYLE}"/>${CODE_SPACING}</w:pPr>` +
     tokens.map(tokenRun).join("") +
     "</w:p>"
   );
 }
 
+/**
+ * A definition of the Codeblock style, shipped with the block.
+ *
+ * A `w:pStyle` naming a style the package does not define is discarded, which left the
+ * message as ordinary body text. Where the document already defines Codeblock — as the
+ * report template does — that definition wins and this one is ignored; elsewhere it
+ * supplies the same look.
+ */
+const CODE_STYLE_DEFINITION =
+  `<w:style w:type="paragraph" w:customStyle="1" w:styleId="${CODE_STYLE}">` +
+  '<w:name w:val="Code block"/><w:basedOn w:val="Normal"/><w:qFormat/>' +
+  "<w:pPr>" +
+  '<w:pBdr><w:top w:val="single" w:sz="24" w:space="1" w:color="D7D2CB"/>' +
+  '<w:left w:val="single" w:sz="24" w:space="4" w:color="D7D2CB"/>' +
+  '<w:bottom w:val="single" w:sz="24" w:space="1" w:color="D7D2CB"/>' +
+  '<w:right w:val="single" w:sz="24" w:space="4" w:color="D7D2CB"/></w:pBdr>' +
+  '<w:shd w:val="clear" w:color="auto" w:fill="D7D2CB"/>' +
+  CODE_SPACING +
+  "</w:pPr>" +
+  `<w:rPr>${FONT}</w:rPr></w:style>`;
+
 /** The highlighted message as an OOXML package, ready to insert. Exported for testing. */
 export function buildHttpBlock(message: HttpMessage): string {
   // The trailing paragraph keeps the block from fusing with whatever follows the cursor,
   // and gives somewhere to carry on typing after it.
-  return wrapInPackage(message.lines.map(codeParagraph).join("") + "<w:p/>");
+  return wrapInPackage(message.lines.map(codeParagraph).join("") + "<w:p/>", CODE_STYLE_DEFINITION);
 }
 
 export interface HttpBlockResult {

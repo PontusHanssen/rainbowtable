@@ -168,19 +168,35 @@ export function run(text: string, properties = ""): string {
 }
 
 /**
- * Wrap document body content in the minimal flat OPC package insertOoxml expects.
+ * Wrap document body content in the flat OPC package insertOoxml expects.
  *
- * Only the document part is included: anything needing a relationship (an external
- * hyperlink, an image) has to be expressed as a field instead, which is why links here
- * are HYPERLINK fields rather than w:hyperlink elements.
+ * Only the document part is included by default: anything needing a relationship (an
+ * external hyperlink, an image) has to be expressed as a field instead, which is why
+ * links here are HYPERLINK fields rather than w:hyperlink elements.
+ *
+ * `styles` adds a styles part. Without one, a `w:pStyle` naming a style the package does
+ * not define is **discarded** — the paragraphs come out as Normal. Where the destination
+ * document already defines a style with the same id, its own definition wins, so shipping
+ * a definition is how content keeps a template's look without overriding it.
  */
-export function wrapInPackage(body: string): string {
+export function wrapInPackage(body: string, styles?: string): string {
+  const stylesParts = styles
+    ? '<pkg:part pkg:name="/word/_rels/document.xml.rels" pkg:contentType="application/vnd.openxmlformats-package.relationships+xml" pkg:padding="256">' +
+      '<pkg:xmlData><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+      '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>' +
+      "</Relationships></pkg:xmlData></pkg:part>" +
+      '<pkg:part pkg:name="/word/styles.xml" pkg:contentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml">' +
+      '<pkg:xmlData><w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">' +
+      `${styles}</w:styles></pkg:xmlData></pkg:part>`
+    : "";
+
   return (
     '<pkg:package xmlns:pkg="http://schemas.microsoft.com/office/2006/xmlPackage">' +
     '<pkg:part pkg:name="/_rels/.rels" pkg:contentType="application/vnd.openxmlformats-package.relationships+xml" pkg:padding="512">' +
     '<pkg:xmlData><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
     '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="/word/document.xml"/>' +
     "</Relationships></pkg:xmlData></pkg:part>" +
+    stylesParts +
     '<pkg:part pkg:name="/word/document.xml" pkg:contentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml">' +
     '<pkg:xmlData><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">' +
     `<w:body>${body}</w:body></w:document></pkg:xmlData></pkg:part></pkg:package>`

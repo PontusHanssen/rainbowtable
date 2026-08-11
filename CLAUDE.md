@@ -269,6 +269,13 @@ Firefox keeps its own store and needs a separate import.
 - Output is one `Codeblock` paragraph per line. That style has `contextualSpacing` and
   four-sided borders, so consecutive paragraphs merge into a single continuous box —
   which is why lines are paragraphs rather than `w:br` breaks.
+- **A package must define every style it names.** `insertOoxml` discards a `w:pStyle`
+  pointing at a style the package does not define, so the first version of this arrived as
+  ordinary body text at body spacing. `wrapInPackage(body, styles)` adds the styles part
+  and its relationship; where the document already defines the style, that definition wins
+  and ours is ignored. Applies to any future OOXML that names a style.
+- Line spacing is stated directly on each paragraph as well as in the style. Code set at
+  the document's body spacing reads as a list of stray lines rather than a block.
 - Colours are picked for the template's beige `D7D2CB` shading rather than white, and
   bold carries the emphasis on the start line and header names so the block still reads
   in greyscale print.

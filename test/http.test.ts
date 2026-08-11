@@ -161,3 +161,21 @@ test("every token kind has a colour", () => {
   assert.ok(kinds.size >= 8, "the fixtures exercise a decent spread of kinds");
   assert.ok(!xml.includes('<w:color w:val="undefined"/>'));
 });
+
+test("the package defines Codeblock, or Word discards the style reference", () => {
+  const xml = buildHttpBlock(highlightHttp("GET / HTTP/1.1\r\nHost: x"));
+
+  assert.ok(xml.includes('pkg:name="/word/styles.xml"'), "a styles part is present");
+  assert.ok(xml.includes('w:styleId="Codeblock"'), "and it defines the style used");
+  assert.ok(
+    xml.includes('pkg:name="/word/_rels/document.xml.rels"'),
+    "the document part relates to it"
+  );
+});
+
+test("code lines are single-spaced with nothing above or below", () => {
+  const xml = buildHttpBlock(highlightHttp("GET / HTTP/1.1\r\nHost: x"));
+
+  assert.ok(xml.includes('<w:spacing w:before="0" w:after="0" w:line="240" w:lineRule="auto"/>'));
+  assert.ok(xml.includes("<w:contextualSpacing/>"), "so consecutive lines form one box");
+});
