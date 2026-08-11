@@ -96,7 +96,12 @@ module.exports = async (env, options) => {
               if (dev) {
                 return content;
               } else {
-                return content.toString().replace(new RegExp(urlDev, "g"), urlProd);
+                // Match the origin with or without its trailing slash: AppDomain entries
+                // carry no trailing slash, so a slash-terminated pattern leaves them
+                // pointing at localhost in the built manifest.
+                const from = urlDev.replace(/\/+$/, "");
+                const to = urlProd.replace(/\/+$/, "");
+                return content.toString().replace(new RegExp(from, "g"), to);
               }
             },
           },
