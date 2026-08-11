@@ -76,12 +76,19 @@ Facts that constrain the implementation:
   tables, code blocks (`Codeblock` style) and images. Reordering must move the whole
   block. Prefer round-tripping via `getOoxml()` / `insertOoxml()` over rebuilding content
   paragraph by paragraph — it preserves formatting the naive path destroys.
-- **`getRange("Whole")` does not include the paragraph mark.** OOXML captured from such a
-  range ends mid-paragraph, and re-inserting two of them back to back merges the tail of
-  one into the heading of the next — which is exactly what happened the first time this
-  shipped. Build spans with `spanRange()` in `sortFindings.ts`, which expands to the
-  *start of the following paragraph* to pull the mark in. Any new code that moves blocks
-  of document content must do the same.
+- **Never move content with a series of separate `insertOoxml` calls.** Every seam where
+  two inserted blocks meet merges: the tail of one block lands inside the next block's
+  heading paragraph, which then renders as a numbered heading full of body text. This was
+  found in live testing, and expanding each block to include its trailing paragraph mark
+  did *not* fix it — the merge is at the join between inserts, not at the block boundary.
+- **The shape that works**: capture the whole region with one `getOoxml()`, rearrange the
+  paragraphs inside that package, and put it back with one
+  `insertOoxml(..., "Replace")`. `sortFindings` and `restoreSection` both do this, and
+  `src/word/ooxml.ts` holds the surgery. A single Replace has no seams, and it preserves
+  each finding's XML verbatim — styles, numbering, tables and images included.
+- `spanRange()` builds region spans that include the trailing paragraph mark, by expanding
+  to the start of the following paragraph. `getRange("Whole")` alone stops short of the
+  mark.
 - The template also defines custom **unnumbered** heading variants (`Heading_1 No` …
   `Heading_5 No`) with matching outline levels. They are unused in the template body but
   may appear in real reports; they are *not* built-in, so they will not be detected.
@@ -155,7 +162,8 @@ src/taskpane/             React entry point + taskpane shell
 src/taskpane/components/App.tsx   section picker and the two command buttons
 src/word/headings.ts      heading scan and the relative section/finding model
 src/word/severity.ts      strict `Risk:` parsing and the sort comparator
-src/word/sortFindings.ts  feature 1 — previewSort (read-only) and sortFindings (edits)
+src/word/ooxml.ts         reordering paragraphs inside a captured OOXML package
+src/word/sortFindings.ts  feature 1 — previewSort, sortFindings, restoreSection (working)
 src/word/findingsTable.ts feature 2 — not implemented
 ```
 
