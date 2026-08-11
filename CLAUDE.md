@@ -10,7 +10,7 @@ operating on finding sections in a security report:
    and `Title` are clickable cross-references to the finding.
 
 3. **CVSS 3.1 calculator** — pick base metrics, write `Risk: <Severity> (<score>)` onto the
-   Risk line at the cursor, and put the vector beneath it as a link to the first.org
+   Risk line at the cursor, and put the vector beneath it as a link to the NVD
    calculator.
 
 `instructions.md` is the source of truth for requirements. Read it before changing behaviour.
@@ -242,6 +242,10 @@ Firefox keeps its own store and needs a separate import.
   It rewrites the whole `Risk:` line rather than inserting at the cursor, so the result
   cannot come out malformed. The cursor must be on a `Risk:` line; anything else is an
   error rather than a guess.
+- The vector links to NVD's calculator, which takes `?vector=…&version=3.1`. Keep it a
+  query parameter, not a fragment: Word splits a hyperlink on `#` into address and
+  location. The report template already cites this calculator, so the link matches how
+  the reports are written.
 - This feature deliberately uses **no OOXML**: `Paragraph.insertText` preserves each
   paragraph's own style, and `Range.hyperlink` (WordApi 1.3) links the vector without
   needing a relationship part, which a hand-built package cannot carry.

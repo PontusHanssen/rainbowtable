@@ -5,7 +5,6 @@ import {
   DEFAULT_VECTOR,
   METRICS,
   baseScore,
-  calculatorUrl,
   formatVector,
   severityFor,
 } from "../../word/cvss";
@@ -162,8 +161,7 @@ const CvssCalculator: React.FC = () => {
 
       <div className={styles.status}>
         Put the cursor on the finding&apos;s &quot;Risk:&quot; line. The vector goes on the line
-        below, linked to{" "}
-        <span className={styles.vector}>{calculatorUrl(vector).split("#")[0]}</span>
+        below, linked to the NVD calculator.
       </div>
 
       {status && !error && <div className={styles.status}>{status}</div>}

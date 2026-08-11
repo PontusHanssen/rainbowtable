@@ -92,11 +92,15 @@ test("the vector string keeps the specification's metric order", () => {
   );
 });
 
-test("the calculator link carries the vector as its fragment", () => {
+test("the calculator link points at NVD, carrying the vector as a query parameter", () => {
+  const url = calculatorUrl(parse("AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"));
+
   assert.equal(
-    calculatorUrl(parse("AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H")),
-    "https://www.first.org/cvss/calculator/3.1#CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
+    url,
+    "https://nvd.nist.gov/vuln-metrics/cvss/v3-calculator" +
+      "?vector=CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H&version=3.1"
   );
+  assert.ok(!url.includes("#"), "Word splits hyperlinks on # into address and location");
 });
 
 test("isVectorLine spots a vector paragraph so it gets replaced, not repeated", () => {

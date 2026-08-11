@@ -172,9 +172,14 @@ export function formatVector(vector: CvssVector): string {
   return `CVSS:3.1/${METRICS.map((metric) => `${metric.id}:${vector[metric.id]}`).join("/")}`;
 }
 
-/** The first.org calculator, opened on this vector so the scoring can be checked. */
+/**
+ * The NVD calculator, opened on this vector so the scoring can be checked.
+ *
+ * NVD takes the vector as a query parameter rather than a fragment, which also keeps
+ * Word out of trouble: it splits a hyperlink on "#" into address and location.
+ */
 export function calculatorUrl(vector: CvssVector): string {
-  return `https://www.first.org/cvss/calculator/3.1#${formatVector(vector)}`;
+  return `https://nvd.nist.gov/vuln-metrics/cvss/v3-calculator?vector=${formatVector(vector)}&version=3.1`;
 }
 
 /** True when a line of text is a CVSS vector, so it can be replaced rather than repeated. */
