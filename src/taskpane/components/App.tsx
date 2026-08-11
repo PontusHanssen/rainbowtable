@@ -9,8 +9,9 @@ import {
   tokens,
 } from "@fluentui/react-components";
 import { Section, findSections, getHeadings } from "../../word/headings";
-import { SkippedFinding, previewSort, restoreSection, sortFindings } from "../../word/sortFindings";
-import { insertFindingsTable } from "../../word/findingsTable";
+import { SkippedFinding } from "../../word/section";
+import { previewSort, restoreSection, sortFindings } from "../../word/sortFindings";
+import { insertFindingsTable, previewTable, removeFindingsTable } from "../../word/findingsTable";
 
 const useStyles = makeStyles({
   root: {
@@ -49,6 +50,13 @@ const useStyles = makeStyles({
   },
 });
 
+/** A completed action that can still be taken back. Word's own undo cannot reach ours. */
+type Undoable =
+  { kind: "sort"; section: Section; snapshot: string } | { kind: "table"; bookmark: string };
+
+/** An action held back until the user has seen the findings we cannot read. */
+type Pending = { section: Section; action: "sort" | "table" };
+
 const describe = ({ title, reason }: SkippedFinding) => `"${title}" — ${reason}`;
 
 /**
@@ -82,10 +90,8 @@ const App: React.FC = () => {
   const [status, setStatus] = React.useState("");
   const [warnings, setWarnings] = React.useState<string[]>([]);
   const [error, setError] = React.useState("");
-  /** Set when sorting is waiting for the user to accept unreadable findings. */
-  const [unconfirmed, setUnconfirmed] = React.useState<Section | undefined>();
-  /** The last sort, kept so it can be undone: Word's own undo cannot reach our edits. */
-  const [undoable, setUndoable] = React.useState<{ section: Section; snapshot: string }>();
+  const [pending, setPending] = React.useState<Pending | undefined>();
+  const [undoable, setUndoable] = React.useState<Undoable | undefined>();
 
   /** Re-read the document. `announce` is off when refreshing after an action, so the
       action's own result stays on screen. */
@@ -102,7 +108,7 @@ const App: React.FC = () => {
     setBusy(true);
     setError("");
     setWarnings([]);
-    setUnconfirmed(undefined);
+    setPending(undefined);
     setUndoable(undefined);
     try {
       await scan(true);
@@ -117,17 +123,15 @@ const App: React.FC = () => {
     refresh();
   }, [refresh]);
 
-  const run = async (action: (section: Section) => Promise<void>) => {
-    if (!selected) {
-      return;
-    }
+  /** Run a document action, keeping the pane's state consistent whatever happens. */
+  const run = async (action: () => Promise<void>) => {
     setBusy(true);
     setError("");
     setWarnings([]);
-    setUnconfirmed(undefined);
+    setPending(undefined);
     setUndoable(undefined);
     try {
-      await action(selected);
+      await action();
       await scan(false);
     } catch (err) {
       setError(String(err));
@@ -146,17 +150,31 @@ const App: React.FC = () => {
       );
       setWarnings(result.skipped.map((finding) => `Left in place: ${describe(finding)}`));
       if (result.snapshot) {
-        setUndoable({ section, snapshot: result.snapshot });
+        setUndoable({ kind: "sort", section, snapshot: result.snapshot });
       }
     });
 
-  // Nothing is edited until the user has seen any findings we cannot read.
-  const onSort = () =>
-    run(async (section) => {
+  const applyTable = (section: Section) =>
+    run(async () => {
+      const result = await insertFindingsTable(section);
+      setStatus(`Inserted a table of ${result.rows} finding${result.rows === 1 ? "" : "s"}.`);
+      setWarnings(
+        result.skipped.map((finding) => `Listed without a severity: ${describe(finding)}`)
+      );
+      setUndoable({ kind: "table", bookmark: result.bookmark });
+    });
+
+  // Neither command edits anything until the user has seen the findings we cannot read.
+  const onSort = () => {
+    const section = selected;
+    if (!section) {
+      return;
+    }
+    run(async () => {
       const preview = await previewSort(section);
 
       if (preview.skipped.length > 0) {
-        setUnconfirmed(section);
+        setPending({ section, action: "sort" });
         setWarnings(preview.skipped.map(describe));
         setStatus(
           `${preview.skipped.length} of ${preview.skipped.length + preview.sorted} findings have no readable risk rating. ` +
@@ -170,32 +188,46 @@ const App: React.FC = () => {
         return;
       }
 
-      const result = await sortFindings(section);
-      setStatus(`Sorted ${result.sorted} finding${result.sorted === 1 ? "" : "s"} by severity.`);
-      if (result.snapshot) {
-        setUndoable({ section, snapshot: result.snapshot });
-      }
+      await applySort(section);
     });
+  };
 
-  const onInsertTable = () => run((section) => insertFindingsTable(section));
-
-  const onUndo = async () => {
-    if (!undoable) {
+  const onInsertTable = () => {
+    const section = selected;
+    if (!section) {
       return;
     }
-    setBusy(true);
-    setError("");
-    setWarnings([]);
-    try {
-      await restoreSection(undoable.section, undoable.snapshot);
-      setUndoable(undefined);
-      setStatus("Undone — the findings are back in their original order.");
-      await scan(false);
-    } catch (err) {
-      setError(String(err));
-    } finally {
-      setBusy(false);
+    run(async () => {
+      const preview = await previewTable(section);
+
+      if (preview.skipped.length > 0) {
+        setPending({ section, action: "table" });
+        setWarnings(preview.skipped.map(describe));
+        setStatus(
+          `${preview.skipped.length} of ${preview.rows} findings have no readable risk rating and would be ` +
+            "listed without a severity. Nothing has been inserted."
+        );
+        return;
+      }
+
+      await applyTable(section);
+    });
+  };
+
+  const onUndo = () => {
+    const action = undoable;
+    if (!action) {
+      return;
     }
+    run(async () => {
+      if (action.kind === "sort") {
+        await restoreSection(action.section, action.snapshot);
+        setStatus("Undone — the findings are back in their original order.");
+      } else {
+        await removeFindingsTable(action.bookmark);
+        setStatus("Removed the inserted table.");
+      }
+    });
   };
 
   return (
@@ -205,9 +237,9 @@ const App: React.FC = () => {
           placeholder="Select a section"
           disabled={busy || sections.length === 0}
           value={selected ? selected.heading.text : ""}
-          selectedOptions={selected ? [selected.heading.text] : []}
+          selectedOptions={selected ? [key(selected)] : []}
           onOptionSelect={(_event, data) => {
-            setUnconfirmed(undefined);
+            setPending(undefined);
             setSelected(sections.find((section) => key(section) === data.optionValue));
           }}
         >
@@ -233,7 +265,7 @@ const App: React.FC = () => {
 
       {undoable && !busy && (
         <Button appearance="outline" onClick={onUndo}>
-          Undo the last sort
+          {undoable.kind === "sort" ? "Undo the last sort" : "Remove the inserted table"}
         </Button>
       )}
 
@@ -248,15 +280,22 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {unconfirmed && !busy && (
+      {pending && !busy && (
         <div className={styles.confirm}>
           <div className={styles.status}>
-            Fix the risk headings above, or sort the rest and leave those findings where they are.
+            {pending.action === "sort"
+              ? "Fix the risk headings above, or sort the rest and leave those findings where they are."
+              : "Fix the risk headings above, or insert the table with those rows left blank."}
           </div>
-          <Button appearance="primary" onClick={() => applySort(unconfirmed)}>
-            Sort the rest anyway
+          <Button
+            appearance="primary"
+            onClick={() =>
+              pending.action === "sort" ? applySort(pending.section) : applyTable(pending.section)
+            }
+          >
+            {pending.action === "sort" ? "Sort the rest anyway" : "Insert the table anyway"}
           </Button>
-          <Button appearance="subtle" onClick={() => setUnconfirmed(undefined)}>
+          <Button appearance="subtle" onClick={() => setPending(undefined)}>
             Cancel
           </Button>
         </div>

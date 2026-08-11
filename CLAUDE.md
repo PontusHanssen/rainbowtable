@@ -22,10 +22,12 @@ don't build it.
 
 - **TypeScript + React** taskpane, scaffolded from the Yeoman `office` generator
   (`yo office`, projectType `react`, host `word`, TypeScript).
-- **Office.js**, requirement set **WordApi 1.3** — the floor for the paragraph and OOXML
-  APIs this add-in needs, and widely available in Word on the web and desktop. Bookmark
-  APIs want 1.4; the OOXML path covers 1.3 clients, so don't raise the manifest floor
-  without a reason.
+- **Office.js**, requirement set **WordApi 1.4** — the floor for the paragraph and OOXML
+  APIs, plus `Range.insertBookmark` and `Document.getBookmarkRange`, which the findings
+  table needs. This excludes Word 2019 and older; the add-in targets M365, where 1.4 has
+  been available for years. It was raised from 1.3 deliberately: writing bookmarks through
+  the API means the findings region is never rewritten just to add them, and it is what
+  makes the inserted table removable again.
 - **XML manifest** (not the unified JSON manifest), sideloaded from a shared
   SharePoint/OneDrive folder.
 - **Assets hosted in SharePoint.** Consequences for the build:
@@ -117,10 +119,11 @@ The `#` and `Title` cells must be real Word cross-references — clickable in Wo
 surviving PDF export as internal links**. That rules out plain text and rules out
 `insertHyperlink` to a heading. It means bookmarks + `REF` fields:
 
-- Bookmark each finding heading (a hidden `_Ref`-style name of our own, e.g.
-  `_pt_finding_<n>`; do not reuse or renumber Word's own `_Ref…` bookmarks).
-  `Range.insertBookmark` needs **WordApi 1.4**; where that isn't available, emit
-  `w:bookmarkStart`/`w:bookmarkEnd` in the OOXML round-trip we already perform.
+- Bookmark each finding heading with `Range.insertBookmark`. Names come from
+  `bookmarkName()` — a hash of the section and finding titles, never the position, so
+  re-running after a sort reuses the same name for the same finding instead of repointing
+  an older table's references at whatever now occupies that slot. The leading underscore
+  makes them hidden; Word allows letters, digits and underscores only, up to 40 chars.
 - `#` cell → `REF <bookmark> \w \h`. `\w` is full-context paragraph numbering, which yields
   `3.1` from anywhere in the document; `\r` (relative context) can collapse to `1` when the
   table sits in a different branch. `\h` makes it a hyperlink — **without `\h` the PDF
@@ -164,7 +167,8 @@ src/word/headings.ts      heading scan and the relative section/finding model
 src/word/severity.ts      strict `Risk:` parsing and the sort comparator
 src/word/ooxml.ts         reordering paragraphs inside a captured OOXML package
 src/word/sortFindings.ts  feature 1 — previewSort, sortFindings, restoreSection (working)
-src/word/findingsTable.ts feature 2 — not implemented
+src/word/section.ts       scanning a section into findings, shared by both features
+src/word/findingsTable.ts feature 2 — previewTable, insertFindingsTable, removeFindingsTable
 ```
 
 Word-facing logic lives in `src/word/` and stays free of React; components call into it.

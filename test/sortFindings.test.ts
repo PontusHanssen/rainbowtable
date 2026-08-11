@@ -2,7 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { childHeadings, findSections, toHeadings } from "../src/word/headings";
 import { parseRisk } from "../src/word/severity";
-import { buildBlocks, planOrder } from "../src/word/sortFindings";
+import { buildBlocks } from "../src/word/section";
+import { planOrder } from "../src/word/sortFindings";
 import { FixtureParagraph, filledParagraphs, templateParagraphs } from "./fixtures/template";
 
 /**

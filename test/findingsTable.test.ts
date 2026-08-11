@@ -1,0 +1,170 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { childHeadings, headingNumber, toHeadings } from "../src/word/headings";
+import { buildBlocks } from "../src/word/section";
+import {
+  FindingRow,
+  bookmarkName,
+  buildFindingsTable,
+  buildRows,
+  tableBookmarkName,
+} from "../src/word/findingsTable";
+import { filledParagraphs, templateParagraphs } from "./fixtures/template";
+
+const row = (overrides: Partial<FindingRow> = {}): FindingRow => ({
+  bookmark: "_ptfdeadbeef0",
+  number: "4.1",
+  severity: "Critical",
+  score: 9.1,
+  title: "Weak transport layer security",
+  ...overrides,
+});
+
+test("headingNumber counts ordinals into a dotted number", () => {
+  const headings = toHeadings(templateParagraphs);
+  const number = (text: string, level: number) =>
+    headingNumber(
+      headings,
+      headings.findIndex((heading) => heading.text === text && heading.level === level)
+    );
+
+  assert.equal(number("Background", 1), "1");
+  assert.equal(number("Results", 1), "2");
+  assert.equal(number("Vulnerabilities", 1), "3");
+  assert.equal(number("Weaknesses", 1), "4");
+  assert.equal(number("[TODO Web1: Missing security headers]", 2), "4.3");
+});
+
+test("headingNumber restarts the deeper level under each new parent", () => {
+  const headings = toHeadings([
+    { styleBuiltIn: "Heading1", text: "One" },
+    { styleBuiltIn: "Heading2", text: "One.One" },
+    { styleBuiltIn: "Heading3", text: "One.One.One" },
+    { styleBuiltIn: "Heading1", text: "Two" },
+    { styleBuiltIn: "Heading2", text: "Two.One" },
+  ]);
+
+  assert.deepEqual(
+    headings.map((_, i) => headingNumber(headings, i)),
+    ["1", "1.1", "1.1.1", "2", "2.1"]
+  );
+});
+
+test("bookmark names are stable per finding and independent of position", () => {
+  const first = bookmarkName("Weaknesses", "Weak transport layer security");
+  const again = bookmarkName("Weaknesses", "Weak transport layer security");
+
+  assert.equal(first, again, "same finding, same name after a sort moves it");
+  assert.notEqual(first, bookmarkName("Weaknesses", "Missing security headers"));
+  assert.notEqual(first, bookmarkName("Vulnerabilities", "Weak transport layer security"));
+});
+
+test("bookmark names satisfy Word's rules", () => {
+  const names = [
+    bookmarkName("Weaknesses", "Outdated & vulnerable dependencies (npm)"),
+    tableBookmarkName("Appendix A – Automated analysis"),
+  ];
+
+  for (const name of names) {
+    assert.match(name, /^_[A-Za-z0-9_]+$/, `${name} is alphanumeric and hidden`);
+    assert.ok(name.length <= 40, `${name} is within 40 characters`);
+  }
+});
+
+test("duplicate finding titles in a section get distinct bookmarks", () => {
+  const headings = toHeadings(templateParagraphs);
+  const position = headings.findIndex((h) => h.text === "Weaknesses" && h.level === 1);
+  const blocks = buildBlocks(
+    headings,
+    position,
+    childHeadings(headings, position),
+    templateParagraphs.length
+  );
+
+  const rows = buildRows(headings, "Weaknesses", blocks);
+  assert.equal(new Set(rows.map((r) => r.bookmark)).size, rows.length);
+});
+
+test("rows carry the severity, score and number of each finding", () => {
+  const headings = toHeadings(filledParagraphs);
+  const position = headings.findIndex((h) => h.text === "Findings");
+  const blocks = buildBlocks(
+    headings,
+    position,
+    childHeadings(headings, position),
+    filledParagraphs.length
+  );
+
+  assert.deepEqual(
+    buildRows(headings, "Findings", blocks).map((r) => [r.number, r.severity, r.score, r.title]),
+    [
+      ["1.1", "Medium", 5.4, "XSS in Y"],
+      ["1.2", "Critical", 9, "SQLi"],
+      ["1.3", "Medium", 4, "SSRF A"],
+    ]
+  );
+});
+
+test("the # and Title cells are hyperlinked REF fields with cached results", () => {
+  const xml = buildFindingsTable([row()]);
+
+  assert.ok(
+    xml.includes('<w:fldSimple w:instr=" REF _ptfdeadbeef0 \\w \\h ">'),
+    "# cell references the bookmark with full-context numbering"
+  );
+  assert.ok(
+    xml.includes('<w:fldSimple w:instr=" REF _ptfdeadbeef0 \\h ">'),
+    "title cell references the bookmark"
+  );
+  assert.ok(xml.includes(">4.1<"), "the number is cached inside the field");
+  assert.ok(
+    xml.includes(">Weak transport layer security<"),
+    "the title is cached inside the field"
+  );
+});
+
+test("every severity gets its own fill colour", () => {
+  /** The fill on the severity cell, found by walking back from the severity text. */
+  const fillFor = (severity: FindingRow["severity"]) => {
+    const xml = buildFindingsTable([row({ severity })]);
+    const cellStart = xml.lastIndexOf("<w:tc>", xml.indexOf(`>${severity}<`));
+    return /w:fill="([0-9A-F]{6})"/.exec(xml.slice(cellStart))?.[1];
+  };
+
+  const fills = (["Critical", "High", "Medium", "Low", "Informational"] as const).map(fillFor);
+
+  assert.ok(
+    fills.every((fill) => fill !== undefined),
+    "every severity is shaded"
+  );
+  assert.equal(new Set(fills).size, 5, "five distinct colours");
+});
+
+test("a finding with no readable risk is still listed, without severity or score", () => {
+  const xml = buildFindingsTable([row({ severity: undefined, score: undefined })]);
+
+  assert.ok(xml.includes(">—<"), "severity shows a dash");
+  assert.ok(xml.includes(">Weak transport layer security<"), "the finding is still in the table");
+});
+
+test("scores render with one decimal, the CVSS convention", () => {
+  assert.ok(buildFindingsTable([row({ score: 9 })]).includes(">9.0<"));
+  assert.ok(buildFindingsTable([row({ score: 5.4 })]).includes(">5.4<"));
+});
+
+test("titles are XML-escaped", () => {
+  const xml = buildFindingsTable([row({ title: 'Ampersand & "quotes" <tag>' })]);
+
+  assert.ok(xml.includes("Ampersand &amp; &quot;quotes&quot; &lt;tag&gt;"));
+  assert.ok(!xml.includes("<tag>"), "no raw markup leaks into the document");
+});
+
+test("the table is a complete package with a header row per column", () => {
+  const xml = buildFindingsTable([row(), row({ severity: "Low", score: 2.1, title: "Second" })]);
+
+  assert.ok(xml.startsWith("<pkg:package"), "insertOoxml needs a flat OPC package");
+  assert.ok(xml.includes("<w:tblHeader/>"), "the header row repeats across pages");
+  assert.equal(xml.match(/<w:tr>/g)?.length, 3, "one header row plus two findings");
+  assert.equal(xml.match(/<w:gridCol/g)?.length, 4, "four columns");
+  assert.ok(xml.trimEnd().endsWith("</pkg:package>"));
+});

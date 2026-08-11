@@ -60,6 +60,32 @@ export async function getHeadings(): Promise<Heading[]> {
   });
 }
 
+/**
+ * The dotted number Word displays for a heading, e.g. "4.2", worked out by counting
+ * heading ordinals.
+ *
+ * Office.js does not reliably expose the computed string for style-linked numbering, and
+ * this only has to be close enough: it is the cached result baked into a REF field, which
+ * Word recomputes when fields update. Headings styled with something other than the
+ * built-in Heading styles are invisible here, so a document that mixes numbering schemes
+ * can drift until the fields refresh.
+ */
+export function headingNumber(headings: Heading[], position: number): string {
+  if (position < 0 || position >= headings.length) {
+    throw new Error(`No heading at position ${position}.`);
+  }
+
+  const ordinals: number[] = [];
+
+  for (let i = 0; i <= position; i++) {
+    const level = headings[i].level;
+    ordinals.length = level;
+    ordinals[level - 1] = (ordinals[level - 1] ?? 0) + 1;
+  }
+
+  return Array.from(ordinals, (ordinal) => ordinal ?? 1).join(".");
+}
+
 /** The direct child headings of `headings[position]`, i.e. its findings. */
 export function childHeadings(headings: Heading[], position: number): Heading[] {
   const parent = headings[position];
