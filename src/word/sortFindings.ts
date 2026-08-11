@@ -17,6 +17,11 @@ export interface SortPreview {
   skipped: SkippedFinding[];
 }
 
+export interface SortResult extends SortPreview {
+  /** OOXML of the findings as they were before the sort; feed to `restoreSection`. */
+  snapshot?: string;
+}
+
 /** A finding and the span of paragraphs it owns, inclusive. */
 export interface Block {
   heading: Heading;
@@ -62,14 +67,33 @@ export async function previewSort(section: Section): Promise<SortPreview> {
 }
 
 /**
+ * A range covering paragraphs `start` through `end` *including the trailing paragraph
+ * mark*.
+ *
+ * `getRange("Whole")` stops just short of a paragraph's mark, so OOXML captured from it
+ * ends mid-paragraph: re-inserting two such blocks back to back merges the tail of one
+ * into the heading of the next. Expanding to the start of the following paragraph is
+ * what pulls the mark in. Only a span reaching the last paragraph of the document has
+ * no following paragraph to expand to, and nothing follows it to merge with.
+ */
+function spanRange(paragraphs: Word.ParagraphCollection, start: number, end: number): Word.Range {
+  const from = paragraphs.items[start].getRange("Whole");
+  const following = end + 1;
+
+  return following < paragraphs.items.length
+    ? from.expandTo(paragraphs.items[following].getRange("Start"))
+    : from.expandTo(paragraphs.items[end].getRange("Whole"));
+}
+
+/**
  * Reorder a section's findings by severity, moving each finding's whole block of
  * content with it.
  *
- * The edit is a single Word.run batch — one round trip that deletes the old blocks and
- * re-inserts them in order — so it lands as one undo step rather than leaving the
- * document half-sorted.
+ * Returns a snapshot of the region as it was before the edit. Office.js edits do not
+ * enter Word's own undo stack on the web, so Ctrl+Z cannot reach them — `restoreSection`
+ * plus this snapshot is the add-in's own undo.
  */
-export async function sortFindings(section: Section): Promise<SortPreview> {
+export async function sortFindings(section: Section): Promise<SortResult> {
   return Word.run(async (context) => {
     const { paragraphs, sectionHeading, blocks } = await scanSection(context, section);
     const summary = summarize(blocks);
@@ -82,12 +106,15 @@ export async function sortFindings(section: Section): Promise<SortPreview> {
     const ranges = new Map<Block, Word.Range>();
     const ooxml = new Map<Block, OfficeExtension.ClientResult<string>>();
     blocks.forEach((block) => {
-      const range = paragraphs.items[block.start]
-        .getRange("Whole")
-        .expandTo(paragraphs.items[block.end].getRange("Whole"));
+      const range = spanRange(paragraphs, block.start, block.end);
       ranges.set(block, range);
       ooxml.set(block, range.getOoxml());
     });
+    const snapshot = spanRange(
+      paragraphs,
+      blocks[0].start,
+      blocks[blocks.length - 1].end
+    ).getOoxml();
     await context.sync();
 
     // Remove every block, then re-insert them immediately after the section heading in
@@ -104,7 +131,29 @@ export async function sortFindings(section: Section): Promise<SortPreview> {
       );
     await context.sync();
 
-    return summary;
+    // getOoxml() hands back a ClientResult, which is filled in by the sync above and
+    // needs no load() — the office-addins lint rule cannot tell the two apart.
+    // eslint-disable-next-line office-addins/load-object-before-read
+    return { ...summary, snapshot: snapshot.value };
+  });
+}
+
+/**
+ * Put a section's findings back as they were, from a snapshot taken by `sortFindings`.
+ *
+ * The snapshot covers the findings only, not the section heading, so this replaces the
+ * same span the sort rewrote. It assumes the section has not been edited since.
+ */
+export async function restoreSection(section: Section, snapshot: string): Promise<void> {
+  return Word.run(async (context) => {
+    const { paragraphs, blocks } = await scanSection(context, section);
+    if (blocks.length === 0) {
+      throw new Error(`"${section.heading.text}" no longer has any findings to restore.`);
+    }
+
+    const region = spanRange(paragraphs, blocks[0].start, blocks[blocks.length - 1].end);
+    region.insertOoxml(snapshot, Word.InsertLocation.replace);
+    await context.sync();
   });
 }
 

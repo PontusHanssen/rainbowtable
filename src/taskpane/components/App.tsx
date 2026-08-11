@@ -9,7 +9,7 @@ import {
   tokens,
 } from "@fluentui/react-components";
 import { Section, findSections, getHeadings } from "../../word/headings";
-import { SkippedFinding, previewSort, sortFindings } from "../../word/sortFindings";
+import { SkippedFinding, previewSort, restoreSection, sortFindings } from "../../word/sortFindings";
 import { insertFindingsTable } from "../../word/findingsTable";
 
 const useStyles = makeStyles({
@@ -84,6 +84,8 @@ const App: React.FC = () => {
   const [error, setError] = React.useState("");
   /** Set when sorting is waiting for the user to accept unreadable findings. */
   const [unconfirmed, setUnconfirmed] = React.useState<Section | undefined>();
+  /** The last sort, kept so it can be undone: Word's own undo cannot reach our edits. */
+  const [undoable, setUndoable] = React.useState<{ section: Section; snapshot: string }>();
 
   /** Re-read the document. `announce` is off when refreshing after an action, so the
       action's own result stays on screen. */
@@ -101,6 +103,7 @@ const App: React.FC = () => {
     setError("");
     setWarnings([]);
     setUnconfirmed(undefined);
+    setUndoable(undefined);
     try {
       await scan(true);
     } catch (err) {
@@ -122,6 +125,7 @@ const App: React.FC = () => {
     setError("");
     setWarnings([]);
     setUnconfirmed(undefined);
+    setUndoable(undefined);
     try {
       await action(selected);
       await scan(false);
@@ -141,6 +145,9 @@ const App: React.FC = () => {
           : "Already in severity order — nothing changed."
       );
       setWarnings(result.skipped.map((finding) => `Left in place: ${describe(finding)}`));
+      if (result.snapshot) {
+        setUndoable({ section, snapshot: result.snapshot });
+      }
     });
 
   // Nothing is edited until the user has seen any findings we cannot read.
@@ -165,9 +172,31 @@ const App: React.FC = () => {
 
       const result = await sortFindings(section);
       setStatus(`Sorted ${result.sorted} finding${result.sorted === 1 ? "" : "s"} by severity.`);
+      if (result.snapshot) {
+        setUndoable({ section, snapshot: result.snapshot });
+      }
     });
 
   const onInsertTable = () => run((section) => insertFindingsTable(section));
+
+  const onUndo = async () => {
+    if (!undoable) {
+      return;
+    }
+    setBusy(true);
+    setError("");
+    setWarnings([]);
+    try {
+      await restoreSection(undoable.section, undoable.snapshot);
+      setUndoable(undefined);
+      setStatus("Undone — the findings are back in their original order.");
+      await scan(false);
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <div className={styles.root}>
@@ -201,6 +230,12 @@ const App: React.FC = () => {
           Rescan document
         </Button>
       </div>
+
+      {undoable && !busy && (
+        <Button appearance="outline" onClick={onUndo}>
+          Undo the last sort
+        </Button>
+      )}
 
       {busy && <Spinner size="tiny" labelPosition="after" label="Working…" />}
       {status && !error && <div className={styles.status}>{status}</div>}

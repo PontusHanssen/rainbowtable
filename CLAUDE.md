@@ -76,6 +76,12 @@ Facts that constrain the implementation:
   tables, code blocks (`Codeblock` style) and images. Reordering must move the whole
   block. Prefer round-tripping via `getOoxml()` / `insertOoxml()` over rebuilding content
   paragraph by paragraph — it preserves formatting the naive path destroys.
+- **`getRange("Whole")` does not include the paragraph mark.** OOXML captured from such a
+  range ends mid-paragraph, and re-inserting two of them back to back merges the tail of
+  one into the heading of the next — which is exactly what happened the first time this
+  shipped. Build spans with `spanRange()` in `sortFindings.ts`, which expands to the
+  *start of the following paragraph* to pull the mark in. Any new code that moves blocks
+  of document content must do the same.
 - The template also defines custom **unnumbered** heading variants (`Heading_1 No` …
   `Heading_5 No`) with matching outline levels. They are unused in the template body but
   may appear in real reports; they are *not* built-in, so they will not be detected.
@@ -131,8 +137,15 @@ surviving PDF export as internal links**. That rules out plain text and rules ou
   list to Heading1.
 - The rainbow table is inserted at the current selection, with each row's severity cell
   shaded by severity colour.
-- Both commands are single undo-able user actions as far as is practical; do not leave the
-  document half-modified if a step throws.
+- **Ctrl+Z cannot undo what this add-in does.** Office.js edits do not enter Word's undo
+  stack in Word on the web — confirmed by testing, not assumed. Every command that
+  modifies the document therefore captures the OOXML of the region it is about to rewrite
+  and returns it, and the task pane offers its own "Undo" that puts it back
+  (`sortFindings` → `SortResult.snapshot` → `restoreSection`). A command without that is
+  a command whose effects the user cannot reverse.
+- The snapshot is held in task pane state only: it survives until the next action, a
+  rescan, or the pane closing. That is deliberate — it is an undo, not a version history.
+- Do not leave the document half-modified if a step throws.
 
 ## Layout
 
@@ -160,7 +173,17 @@ Word-facing logic lives in `src/word/` and stays free of React; components call 
 | `npx tsc --noEmit` | typecheck — **the build uses babel-loader and does not typecheck**, so run this explicitly |
 
 `npm start` (office-addin-debugging) sideloads into Word **desktop** and does not work on
-Linux. Develop with `npm run dev-server` plus manual sideloading in Word on the web.
+Linux. Develop with `npm run dev-server` plus manual sideloading in Word on the web:
+**Home → Add-ins → More Add-ins → My Add-ins → Upload My Add-in**, pointing at
+`manifest.xml`. The document has to be open from OneDrive/SharePoint.
+
+HTTPS certificates: `npx office-addin-dev-certs install` writes them to
+`~/.office-addin-dev-certs`, but its CA install step fails on Fedora (it targets Arch's
+trust path) — the certificates themselves are still generated, and `webpack.config.js`
+reads them from disk. The browser must trust `ca.crt` or the task pane iframe will not
+load; for Chromium that is
+`certutil -d sql:$HOME/.pki/nssdb -A -t "C,," -n "Office Add-in Dev CA" -i ~/.office-addin-dev-certs/ca.crt`.
+Firefox keeps its own store and needs a separate import.
 
 ## Working in this repo
 
