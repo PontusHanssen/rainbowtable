@@ -15,6 +15,7 @@ import { SkippedFinding } from "../../word/section";
 import { previewSort, restoreSection, sortFindings } from "../../word/sortFindings";
 import { insertFindingsTable, previewTable, removeFindingsTable } from "../../word/findingsTable";
 import CvssCalculator from "./CvssCalculator";
+import HttpBlock from "./HttpBlock";
 
 const useStyles = makeStyles({
   root: {
@@ -93,7 +94,7 @@ const App: React.FC = () => {
   const [status, setStatus] = React.useState("");
   const [warnings, setWarnings] = React.useState<string[]>([]);
   const [error, setError] = React.useState("");
-  const [tab, setTab] = React.useState<"findings" | "cvss">("findings");
+  const [tab, setTab] = React.useState<"findings" | "cvss" | "http">("findings");
   const [pending, setPending] = React.useState<Pending | undefined>();
   const [undoable, setUndoable] = React.useState<Undoable | undefined>();
 
@@ -238,13 +239,15 @@ const App: React.FC = () => {
     <div className={styles.root}>
       <TabList
         selectedValue={tab}
-        onTabSelect={(_event, data) => setTab(data.value as "findings" | "cvss")}
+        onTabSelect={(_event, data) => setTab(data.value as "findings" | "cvss" | "http")}
       >
         <Tab value="findings">Findings</Tab>
         <Tab value="cvss">CVSS 3.1</Tab>
+        <Tab value="http">HTTP</Tab>
       </TabList>
 
       {tab === "cvss" && <CvssCalculator />}
+      {tab === "http" && <HttpBlock />}
 
       {tab === "findings" && (
         <>

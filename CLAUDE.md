@@ -13,6 +13,9 @@ operating on finding sections in a security report:
    Risk line at the cursor, and put the vector beneath it as a link to the NVD
    calculator.
 
+4. **HTTP code block** — paste a Burp request or response into the pane and insert it at
+   the cursor as a syntax-highlighted `Codeblock`.
+
 `instructions.md` is the source of truth for requirements. Read it before changing behaviour.
 
 ## Design constraints
@@ -181,6 +184,8 @@ src/word/sortFindings.ts  feature 1 — previewSort, sortFindings, restoreSectio
 src/word/section.ts       scanning a section into findings, shared by both features
 src/word/cvss.ts          CVSS 3.1 base score arithmetic, pure
 src/word/insertRisk.ts    feature 3 — insertRisk, undoRisk
+src/word/http.ts          HTTP message tokenising, pure
+src/word/httpBlock.ts     feature 4 — insertHttpBlock, removeHttpBlock
 src/word/findingsTable.ts feature 2 — previewTable, insertFindingsTable, removeFindingsTable
 ```
 
@@ -249,3 +254,24 @@ Firefox keeps its own store and needs a separate import.
 - This feature deliberately uses **no OOXML**: `Paragraph.insertText` preserves each
   paragraph's own style, and `Range.hyperlink` (WordApi 1.3) links the vector without
   needing a relationship part, which a hand-built package cannot carry.
+
+## The HTTP code block
+
+- **Input comes through the task pane only**, never from a selection in the document.
+  Text pasted into Word gets autocorrect, smart quotes and autocapitalisation applied, and
+  a request in a report is evidence — the bytes have to be the ones Burp produced.
+- **Never reformat the message.** No pretty-printing, no re-indenting, no re-encoding;
+  only colour is added. `test/http.test.ts` reassembles the tokens and asserts they equal
+  the input for every fixture, which is the invariant to preserve.
+- Detection degrades instead of failing: an unparseable body is still highlighted as far
+  as it goes (truncated JSON is normal in reports), and text that is not HTTP at all
+  becomes a plain, uncoloured code block.
+- Output is one `Codeblock` paragraph per line. That style has `contextualSpacing` and
+  four-sided borders, so consecutive paragraphs merge into a single continuous box —
+  which is why lines are paragraphs rather than `w:br` breaks.
+- Colours are picked for the template's beige `D7D2CB` shading rather than white, and
+  bold carries the emphasis on the start line and header names so the block still reads
+  in greyscale print.
+- Every run repeats Courier New 10pt. That duplicates what `Codeblock` already sets, so it
+  costs nothing in this template, but keeps the block monospaced in a document that has no
+  such style.
