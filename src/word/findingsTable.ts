@@ -1,4 +1,5 @@
 import { Heading, Section, headingNumber } from "./headings";
+import { run, wrapInPackage } from "./ooxml";
 import { Block, SkippedFinding, scanSection, skippedFindings } from "./section";
 import { Severity } from "./severity";
 
@@ -64,19 +65,6 @@ export function tableBookmarkName(sectionTitle: string): string {
   return `_ptt${hash(sectionTitle)}`;
 }
 
-function escapeXml(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-function run(text: string, properties = ""): string {
-  const rPr = properties ? `<w:rPr>${properties}</w:rPr>` : "";
-  return `<w:r>${rPr}<w:t xml:space="preserve">${escapeXml(text)}</w:t></w:r>`;
-}
-
 /**
  * A REF field with its result cached inside.
  *
@@ -123,20 +111,6 @@ function findingRow(row: FindingRow): string {
     cell(COLUMNS[2], run(row.score === undefined ? "" : row.score.toFixed(1))) +
     cell(COLUMNS[3], referenceField(row.bookmark, "\\h", row.title)) +
     "</w:tr>"
-  );
-}
-
-/** Wrap document body content in the minimal flat OPC package insertOoxml expects. */
-function wrapInPackage(body: string): string {
-  return (
-    '<pkg:package xmlns:pkg="http://schemas.microsoft.com/office/2006/xmlPackage">' +
-    '<pkg:part pkg:name="/_rels/.rels" pkg:contentType="application/vnd.openxmlformats-package.relationships+xml" pkg:padding="512">' +
-    '<pkg:xmlData><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
-    '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="/word/document.xml"/>' +
-    "</Relationships></pkg:xmlData></pkg:part>" +
-    '<pkg:part pkg:name="/word/document.xml" pkg:contentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml">' +
-    '<pkg:xmlData><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">' +
-    `<w:body>${body}</w:body></w:document></pkg:xmlData></pkg:part></pkg:package>`
   );
 }
 

@@ -5,6 +5,8 @@ import {
   Field,
   Option,
   Spinner,
+  Tab,
+  TabList,
   makeStyles,
   tokens,
 } from "@fluentui/react-components";
@@ -12,6 +14,7 @@ import { Section, findSections, getHeadings } from "../../word/headings";
 import { SkippedFinding } from "../../word/section";
 import { previewSort, restoreSection, sortFindings } from "../../word/sortFindings";
 import { insertFindingsTable, previewTable, removeFindingsTable } from "../../word/findingsTable";
+import CvssCalculator from "./CvssCalculator";
 
 const useStyles = makeStyles({
   root: {
@@ -90,6 +93,7 @@ const App: React.FC = () => {
   const [status, setStatus] = React.useState("");
   const [warnings, setWarnings] = React.useState<string[]>([]);
   const [error, setError] = React.useState("");
+  const [tab, setTab] = React.useState<"findings" | "cvss">("findings");
   const [pending, setPending] = React.useState<Pending | undefined>();
   const [undoable, setUndoable] = React.useState<Undoable | undefined>();
 
@@ -232,76 +236,92 @@ const App: React.FC = () => {
 
   return (
     <div className={styles.root}>
-      <Field label="Section">
-        <Dropdown
-          placeholder="Select a section"
-          disabled={busy || sections.length === 0}
-          value={selected ? selected.heading.text : ""}
-          selectedOptions={selected ? [key(selected)] : []}
-          onOptionSelect={(_event, data) => {
-            setPending(undefined);
-            setSelected(sections.find((section) => key(section) === data.optionValue));
-          }}
-        >
-          {sections.map((section) => (
-            <Option key={key(section)} value={key(section)} text={section.heading.text}>
-              {`${section.heading.text} (${section.findings.length})`}
-            </Option>
-          ))}
-        </Dropdown>
-      </Field>
+      <TabList
+        selectedValue={tab}
+        onTabSelect={(_event, data) => setTab(data.value as "findings" | "cvss")}
+      >
+        <Tab value="findings">Findings</Tab>
+        <Tab value="cvss">CVSS 3.1</Tab>
+      </TabList>
 
-      <div className={styles.actions}>
-        <Button appearance="primary" disabled={!selected || busy} onClick={onSort}>
-          Sort findings by severity
-        </Button>
-        <Button disabled={!selected || busy} onClick={onInsertTable}>
-          Insert findings table
-        </Button>
-        <Button appearance="subtle" disabled={busy} onClick={refresh}>
-          Rescan document
-        </Button>
-      </div>
+      {tab === "cvss" && <CvssCalculator />}
 
-      {undoable && !busy && (
-        <Button appearance="outline" onClick={onUndo}>
-          {undoable.kind === "sort" ? "Undo the last sort" : "Remove the inserted table"}
-        </Button>
-      )}
+      {tab === "findings" && (
+        <>
+          <Field label="Section">
+            <Dropdown
+              placeholder="Select a section"
+              disabled={busy || sections.length === 0}
+              value={selected ? selected.heading.text : ""}
+              selectedOptions={selected ? [key(selected)] : []}
+              onOptionSelect={(_event, data) => {
+                setPending(undefined);
+                setSelected(sections.find((section) => key(section) === data.optionValue));
+              }}
+            >
+              {sections.map((section) => (
+                <Option key={key(section)} value={key(section)} text={section.heading.text}>
+                  {`${section.heading.text} (${section.findings.length})`}
+                </Option>
+              ))}
+            </Dropdown>
+          </Field>
 
-      {busy && <Spinner size="tiny" labelPosition="after" label="Working…" />}
-      {status && !error && <div className={styles.status}>{status}</div>}
-
-      {warnings.length > 0 && (
-        <div className={styles.warnings}>
-          {warnings.map((warning) => (
-            <div key={warning}>{warning}</div>
-          ))}
-        </div>
-      )}
-
-      {pending && !busy && (
-        <div className={styles.confirm}>
-          <div className={styles.status}>
-            {pending.action === "sort"
-              ? "Fix the risk headings above, or sort the rest and leave those findings where they are."
-              : "Fix the risk headings above, or insert the table with those rows left blank."}
+          <div className={styles.actions}>
+            <Button appearance="primary" disabled={!selected || busy} onClick={onSort}>
+              Sort findings by severity
+            </Button>
+            <Button disabled={!selected || busy} onClick={onInsertTable}>
+              Insert findings table
+            </Button>
+            <Button appearance="subtle" disabled={busy} onClick={refresh}>
+              Rescan document
+            </Button>
           </div>
-          <Button
-            appearance="primary"
-            onClick={() =>
-              pending.action === "sort" ? applySort(pending.section) : applyTable(pending.section)
-            }
-          >
-            {pending.action === "sort" ? "Sort the rest anyway" : "Insert the table anyway"}
-          </Button>
-          <Button appearance="subtle" onClick={() => setPending(undefined)}>
-            Cancel
-          </Button>
-        </div>
-      )}
 
-      {error && <div className={styles.error}>{error}</div>}
+          {undoable && !busy && (
+            <Button appearance="outline" onClick={onUndo}>
+              {undoable.kind === "sort" ? "Undo the last sort" : "Remove the inserted table"}
+            </Button>
+          )}
+
+          {busy && <Spinner size="tiny" labelPosition="after" label="Working…" />}
+          {status && !error && <div className={styles.status}>{status}</div>}
+
+          {warnings.length > 0 && (
+            <div className={styles.warnings}>
+              {warnings.map((warning) => (
+                <div key={warning}>{warning}</div>
+              ))}
+            </div>
+          )}
+
+          {pending && !busy && (
+            <div className={styles.confirm}>
+              <div className={styles.status}>
+                {pending.action === "sort"
+                  ? "Fix the risk headings above, or sort the rest and leave those findings where they are."
+                  : "Fix the risk headings above, or insert the table with those rows left blank."}
+              </div>
+              <Button
+                appearance="primary"
+                onClick={() =>
+                  pending.action === "sort"
+                    ? applySort(pending.section)
+                    : applyTable(pending.section)
+                }
+              >
+                {pending.action === "sort" ? "Sort the rest anyway" : "Insert the table anyway"}
+              </Button>
+              <Button appearance="subtle" onClick={() => setPending(undefined)}>
+                Cancel
+              </Button>
+            </div>
+          )}
+
+          {error && <div className={styles.error}>{error}</div>}
+        </>
+      )}
     </div>
   );
 };

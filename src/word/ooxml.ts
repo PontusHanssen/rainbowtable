@@ -151,3 +151,38 @@ export function reorderFindings(pkg: string, headingLevel: number, order: number
   const reordered = order.map((original) => segments[original]).join("");
   return pkg.slice(0, from) + prefix + reordered + suffix + pkg.slice(bodyClose);
 }
+
+/** XML-escape text destined for a w:t element or an attribute. */
+export function escapeXml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/** A run of text, optionally with run properties (already-formed XML). */
+export function run(text: string, properties = ""): string {
+  const rPr = properties ? `<w:rPr>${properties}</w:rPr>` : "";
+  return `<w:r>${rPr}<w:t xml:space="preserve">${escapeXml(text)}</w:t></w:r>`;
+}
+
+/**
+ * Wrap document body content in the minimal flat OPC package insertOoxml expects.
+ *
+ * Only the document part is included: anything needing a relationship (an external
+ * hyperlink, an image) has to be expressed as a field instead, which is why links here
+ * are HYPERLINK fields rather than w:hyperlink elements.
+ */
+export function wrapInPackage(body: string): string {
+  return (
+    '<pkg:package xmlns:pkg="http://schemas.microsoft.com/office/2006/xmlPackage">' +
+    '<pkg:part pkg:name="/_rels/.rels" pkg:contentType="application/vnd.openxmlformats-package.relationships+xml" pkg:padding="512">' +
+    '<pkg:xmlData><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+    '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="/word/document.xml"/>' +
+    "</Relationships></pkg:xmlData></pkg:part>" +
+    '<pkg:part pkg:name="/word/document.xml" pkg:contentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml">' +
+    '<pkg:xmlData><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">' +
+    `<w:body>${body}</w:body></w:document></pkg:xmlData></pkg:part></pkg:package>`
+  );
+}

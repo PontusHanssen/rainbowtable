@@ -9,6 +9,10 @@ operating on finding sections in a security report:
    chosen section's findings, with columns `#`, `Severity`, `Score`, `Title`, where `#`
    and `Title` are clickable cross-references to the finding.
 
+3. **CVSS 3.1 calculator** — pick base metrics, write `Risk: <Severity> (<score>)` onto the
+   Risk line at the cursor, and put the vector beneath it as a link to the first.org
+   calculator.
+
 `instructions.md` is the source of truth for requirements. Read it before changing behaviour.
 
 ## Design constraints
@@ -175,6 +179,8 @@ src/word/severity.ts      strict `Risk:` parsing and the sort comparator
 src/word/ooxml.ts         reordering paragraphs inside a captured OOXML package
 src/word/sortFindings.ts  feature 1 — previewSort, sortFindings, restoreSection (working)
 src/word/section.ts       scanning a section into findings, shared by both features
+src/word/cvss.ts          CVSS 3.1 base score arithmetic, pure
+src/word/insertRisk.ts    feature 3 — insertRisk, undoRisk
 src/word/findingsTable.ts feature 2 — previewTable, insertFindingsTable, removeFindingsTable
 ```
 
@@ -223,3 +229,19 @@ Firefox keeps its own store and needs a separate import.
   APIs behave differently between them.
 - Any change touching the table or sorting needs a **PDF export check**: cross-references
   that work in Word can still export as dead text.
+
+## The CVSS calculator
+
+- `src/word/cvss.ts` implements the v3.1 base score formulas verbatim, including the
+  specification's integer-arithmetic `roundUp`. The tests check it against published CVE
+  vectors (9.8 BlueKeep, 10.0 Zerologon, 7.5 Heartbleed, 6.1 reflected XSS); if you touch
+  the arithmetic, those are the guard rail.
+- CVSS's 0.0 band is called "None"; it is mapped to **Informational**, the severity the
+  rest of the add-in and the reports use.
+- The point of the feature is that what it writes is exactly what `severity.ts` parses.
+  It rewrites the whole `Risk:` line rather than inserting at the cursor, so the result
+  cannot come out malformed. The cursor must be on a `Risk:` line; anything else is an
+  error rather than a guess.
+- This feature deliberately uses **no OOXML**: `Paragraph.insertText` preserves each
+  paragraph's own style, and `Range.hyperlink` (WordApi 1.3) links the vector without
+  needing a relationship part, which a hand-built package cannot carry.
