@@ -119,11 +119,18 @@ The `#` and `Title` cells must be real Word cross-references — clickable in Wo
 surviving PDF export as internal links**. That rules out plain text and rules out
 `insertHyperlink` to a heading. It means bookmarks + `REF` fields:
 
-- Bookmark each finding heading with `Range.insertBookmark`. Names come from
-  `bookmarkName()` — a hash of the section and finding titles, never the position, so
-  re-running after a sort reuses the same name for the same finding instead of repointing
-  an older table's references at whatever now occupies that slot. The leading underscore
-  makes them hidden; Word allows letters, digits and underscores only, up to 40 chars.
+- Bookmark each finding heading with `Range.insertBookmark`. **Reuse the bookmark already
+  on the heading** (`existingBookmark()` over `Range.getBookmarks(true, false)`) before
+  minting a new one — a name is derived from the title, so without reuse a rename would
+  add a second bookmark to the same heading and leave the old one behind, one per title
+  the finding has ever had.
+- New names come from `bookmarkName()`: a hash of the section and finding titles, never
+  the position, so re-running after a sort cannot repoint an older table's references at
+  whatever now occupies that slot. The leading underscore makes them hidden; Word allows
+  letters, digits and underscores only, up to 40 chars.
+- Renaming a finding leaves an existing table's links working, but its cached Title text
+  stays stale until fields update. Deleting a heading outright destroys its bookmark, and
+  that table row then shows Word's "Error! Bookmark not defined.".
 - `#` cell → `REF <bookmark> \w \h`. `\w` is full-context paragraph numbering, which yields
   `3.1` from anywhere in the document; `\r` (relative context) can collapse to `1` when the
   table sits in a different branch. `\h` makes it a hyperlink — **without `\h` the PDF

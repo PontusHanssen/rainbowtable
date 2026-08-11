@@ -159,20 +159,37 @@ export function buildFindingsTable(rows: FindingRow[]): string {
   return wrapInPackage(`${table}<w:p/>`);
 }
 
-/** Turn a section's findings into table rows, in the order they appear in the document. */
+/** Our bookmarks on a heading, if any. Names are hidden, so ask for hidden ones. */
+export const FINDING_BOOKMARK_PREFIX = "_ptf";
+
+/** The bookmark this add-in already put on a heading, if there is one. */
+export function existingBookmark(names: string[]): string | undefined {
+  return [...names]
+    .filter((name) => name.toLowerCase().startsWith(FINDING_BOOKMARK_PREFIX))
+    .sort()[0];
+}
+
+/**
+ * Turn a section's findings into table rows, in the order they appear in the document.
+ *
+ * `existing[i]` is the bookmark already on that finding's heading. Reusing it is what
+ * makes renaming a finding safe: the name is derived from the title, so a rename would
+ * otherwise mint a second bookmark on the same heading and leave the old one behind.
+ */
 export function buildRows(
   headings: Heading[],
   sectionTitle: string,
-  blocks: Block[]
+  blocks: Block[],
+  existing: (string | undefined)[] = []
 ): FindingRow[] {
   const seen = new Map<string, number>();
 
-  return blocks.map((block) => {
+  return blocks.map((block, i) => {
     const occurrence = seen.get(block.heading.text) ?? 0;
     seen.set(block.heading.text, occurrence + 1);
 
     return {
-      bookmark: bookmarkName(sectionTitle, block.heading.text, occurrence),
+      bookmark: existing[i] ?? bookmarkName(sectionTitle, block.heading.text, occurrence),
       number: headingNumber(headings, headings.indexOf(block.heading)),
       severity: block.risk?.severity,
       score: block.risk?.score,
@@ -203,7 +220,19 @@ export async function insertFindingsTable(section: Section): Promise<TableResult
       throw new Error(`"${section.heading.text}" has no findings to tabulate.`);
     }
 
-    const rows = buildRows(headings, section.heading.text, blocks);
+    // Reuse the bookmark already on each heading where there is one, so a finding keeps
+    // its identity across renames instead of collecting a bookmark per title it has had.
+    const found = blocks.map((block) =>
+      paragraphs.items[block.start].getRange("Whole").getBookmarks(true, false)
+    );
+    await context.sync();
+
+    const rows = buildRows(
+      headings,
+      section.heading.text,
+      blocks,
+      found.map((names) => existingBookmark(names.value))
+    );
     rows.forEach((row, i) =>
       paragraphs.items[blocks[i].start].getRange("Whole").insertBookmark(row.bookmark)
     );

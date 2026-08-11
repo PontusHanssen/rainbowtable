@@ -7,6 +7,7 @@ import {
   bookmarkName,
   buildFindingsTable,
   buildRows,
+  existingBookmark,
   tableBookmarkName,
 } from "../src/word/findingsTable";
 import { filledParagraphs, templateParagraphs } from "./fixtures/template";
@@ -167,4 +168,27 @@ test("the table is a complete package with a header row per column", () => {
   assert.equal(xml.match(/<w:tr>/g)?.length, 3, "one header row plus two findings");
   assert.equal(xml.match(/<w:gridCol/g)?.length, 4, "four columns");
   assert.ok(xml.trimEnd().endsWith("</pkg:package>"));
+});
+
+test("a bookmark already on the heading wins over a freshly derived name", () => {
+  const headings = toHeadings(filledParagraphs);
+  const position = headings.findIndex((h) => h.text === "Findings");
+  const blocks = buildBlocks(
+    headings,
+    position,
+    childHeadings(headings, position),
+    filledParagraphs.length
+  );
+
+  const rows = buildRows(headings, "Findings", blocks, ["_ptfaaaaaaaa0", undefined, undefined]);
+
+  assert.equal(rows[0].bookmark, "_ptfaaaaaaaa0", "the existing bookmark survives a rename");
+  assert.equal(rows[1].bookmark, bookmarkName("Findings", "SQLi"), "others are derived as usual");
+});
+
+test("existingBookmark picks only our own bookmarks, deterministically", () => {
+  assert.equal(existingBookmark(["_Ref12345", "_ptfbbbb0", "_GoBack"]), "_ptfbbbb0");
+  assert.equal(existingBookmark(["_ptfcccc0", "_ptfaaaa0"]), "_ptfaaaa0", "stable choice");
+  assert.equal(existingBookmark(["_Ref12345", "_GoBack"]), undefined);
+  assert.equal(existingBookmark([]), undefined);
 });
