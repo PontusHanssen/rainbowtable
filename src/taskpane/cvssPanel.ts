@@ -12,13 +12,16 @@ import { byId, feedbackFor, guard, make, show } from "./dom";
 
 /* global HTMLButtonElement */
 
-/** The same palette the findings table uses, so the pane and the report agree. */
+/**
+ * The colours the report template's own severity character styles use, so the pane shows
+ * what the document will look like rather than a palette of its own.
+ */
 const SEVERITY_COLOURS: Record<Severity, string> = {
-  Critical: "#C00000",
-  High: "#E36C0A",
+  Critical: "#A50021",
+  High: "#FF0000",
   Medium: "#FFC000",
-  Low: "#92D050",
-  Informational: "#8A8A8A",
+  Low: "#00B050",
+  Informational: "#00B0F0",
 };
 
 export function setUpCvssPanel(): void {

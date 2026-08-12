@@ -26,14 +26,54 @@ export interface TableResult extends TablePreview {
   bookmark: string;
 }
 
-/** Fill and text colour per severity — the "rainbow" part. */
-const SEVERITY_COLOURS: Record<Severity, { fill: string; text: string }> = {
-  Critical: { fill: "C00000", text: "FFFFFF" },
-  High: { fill: "E36C0A", text: "FFFFFF" },
-  Medium: { fill: "FFC000", text: "000000" },
-  Low: { fill: "92D050", text: "000000" },
-  Informational: { fill: "BFBFBF", text: "000000" },
+/** The report template's table style, which paints its own header row. */
+export const TABLE_STYLE = "Omegapointtabellbl";
+
+/**
+ * The template's own character styles for severities — they colour the text rather than
+ * shading the cell, which is the house style. The template calls the lowest band "Info",
+ * where the rest of the add-in says "Informational"; the style id is what matters here.
+ */
+const SEVERITY_STYLES: Record<Severity, string> = {
+  Critical: "Critical",
+  High: "High",
+  Medium: "Medium",
+  Low: "Low",
+  Informational: "Info",
 };
+
+/**
+ * Fallbacks, used only where the document does not define these itself. A package must
+ * define every style it names or Word discards the reference, but where the report
+ * template is in play its own definitions win and these are ignored.
+ */
+const STYLE_DEFINITIONS =
+  `<w:style w:type="table" w:customStyle="1" w:styleId="${TABLE_STYLE}">` +
+  '<w:name w:val="Omegapoint tabell (blå)"/><w:uiPriority w:val="99"/>' +
+  "<w:tblPr><w:tblBorders>" +
+  ["top", "left", "bottom", "right", "insideH", "insideV"]
+    .map((edge) => `<w:${edge} w:val="single" w:sz="4" w:space="0" w:color="D7D2CB"/>`)
+    .join("") +
+  "</w:tblBorders></w:tblPr>" +
+  '<w:tblStylePr w:type="firstRow"><w:rPr><w:b w:val="0"/><w:color w:val="FFC000"/></w:rPr>' +
+  '<w:tcPr><w:shd w:val="clear" w:color="auto" w:fill="003349"/></w:tcPr></w:tblStylePr>' +
+  "</w:style>" +
+  (
+    [
+      ["Critical", "A50021"],
+      ["High", "FF0000"],
+      ["Medium", "FFC000"],
+      ["Low", "00B050"],
+      ["Info", "00B0F0"],
+    ] as const
+  )
+    .map(
+      ([id, colour]) =>
+        `<w:style w:type="character" w:customStyle="1" w:styleId="${id}">` +
+        `<w:name w:val="${id}"/><w:uiPriority w:val="1"/><w:qFormat/>` +
+        `<w:rPr><w:color w:val="${colour}"/></w:rPr></w:style>`
+    )
+    .join("");
 
 const COLUMNS = [900, 1600, 900, 5960];
 
@@ -91,23 +131,24 @@ function cell(width: number, content: string, fill?: string): string {
 }
 
 function headerRow(): string {
+  // No shading or bold here: the table style's firstRow formatting supplies both, and
+  // hard-coding them would override the template's look.
   const cells = ["#", "Severity", "Score", "Title"]
-    .map((label, i) => cell(COLUMNS[i], run(label, "<w:b/>"), "D9D9D9"))
+    .map((label, i) => cell(COLUMNS[i], run(label)))
     .join("");
 
   return `<w:tr><w:trPr><w:tblHeader/></w:trPr>${cells}</w:tr>`;
 }
 
 function findingRow(row: FindingRow): string {
-  const colours = row.severity ? SEVERITY_COLOURS[row.severity] : undefined;
-  const severityRun = colours
-    ? run(row.severity as string, `<w:b/><w:color w:val="${colours.text}"/>`)
+  const severityRun = row.severity
+    ? run(row.severity, `<w:rStyle w:val="${SEVERITY_STYLES[row.severity]}"/>`)
     : run("—");
 
   return (
     "<w:tr>" +
     cell(COLUMNS[0], referenceField(row.bookmark, "\\w \\h", row.number)) +
-    cell(COLUMNS[1], severityRun, colours?.fill) +
+    cell(COLUMNS[1], severityRun) +
     cell(COLUMNS[2], run(row.score === undefined ? "" : row.score.toFixed(1))) +
     cell(COLUMNS[3], referenceField(row.bookmark, "\\h", row.title)) +
     "</w:tr>"
@@ -116,21 +157,25 @@ function findingRow(row: FindingRow): string {
 
 /** The findings table as an OOXML package, ready to insert. Exported for testing. */
 export function buildFindingsTable(rows: FindingRow[]): string {
-  const border = (edge: string) =>
-    `<w:${edge} w:val="single" w:sz="4" w:space="0" w:color="BFBFBF"/>`;
-  const borders = ["top", "left", "bottom", "right", "insideH", "insideV"].map(border).join("");
   const grid = COLUMNS.map((width) => `<w:gridCol w:w="${width}"/>`).join("");
 
+  // tblLook is what switches the style's conditional formatting on; without firstRow set,
+  // the header row is painted like any other and the style's navy banner never appears.
   const table =
     "<w:tbl>" +
-    `<w:tblPr><w:tblW w:w="0" w:type="auto"/><w:tblBorders>${borders}</w:tblBorders><w:tblLayout w:type="fixed"/></w:tblPr>` +
+    "<w:tblPr>" +
+    `<w:tblStyle w:val="${TABLE_STYLE}"/>` +
+    '<w:tblW w:w="0" w:type="auto"/><w:tblLayout w:type="fixed"/>' +
+    '<w:tblLook w:val="0420" w:firstRow="1" w:lastRow="0" w:firstColumn="0"' +
+    ' w:lastColumn="0" w:noHBand="0" w:noVBand="1"/>' +
+    "</w:tblPr>" +
     `<w:tblGrid>${grid}</w:tblGrid>` +
     headerRow() +
     rows.map(findingRow).join("") +
     "</w:tbl>";
 
   // The trailing paragraph keeps the table from fusing with whatever follows it.
-  return wrapInPackage(`${table}<w:p/>`);
+  return wrapInPackage(`${table}<w:p/>`, STYLE_DEFINITIONS);
 }
 
 /** Our bookmarks on a heading, if any. Names are hidden, so ask for hidden ones. */

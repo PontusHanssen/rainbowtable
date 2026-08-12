@@ -153,6 +153,16 @@ surviving PDF export as internal links**. That rules out plain text and rules ou
   table sits in a different branch. `\h` makes it a hyperlink — **without `\h` the PDF
   export has nothing to link.**
 - `Title` cell → `REF <bookmark> \h`.
+- **The table takes its look from the report template, not from us.** It applies the
+  `Omegapointtabellbl` table style ("Omegapoint tabell (blå)"), which paints its own header
+  row navy with amber text — so the header cells must carry no shading or bold of their
+  own, and `tblLook` must set `firstRow="1"` or the style's conditional formatting never
+  fires. Severities use the template's character styles `Critical`, `High`, `Medium`,
+  `Low` and `Info`, which colour the **text** rather than shading the cell.
+- The template calls the lowest band **Info** (light blue, `00B0F0`) where the add-in says
+  Informational. `parseRisk` does not accept "Info" as a severity word, so a heading
+  reading `Risk: Info (2.0)` lands in the unreadable bucket — worth revisiting if reports
+  are written that way.
 - Emit fields with a **cached result** — a `w:fldSimple` (or `fldChar` run pair) whose
   inner run holds the computed text. A field with an empty result renders blank until
   someone presses F9, and PDF export does not necessarily update fields first. Compute the

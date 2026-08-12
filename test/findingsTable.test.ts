@@ -124,21 +124,49 @@ test("the # and Title cells are hyperlinked REF fields with cached results", () 
   );
 });
 
-test("every severity gets its own fill colour", () => {
-  /** The fill on the severity cell, found by walking back from the severity text. */
-  const fillFor = (severity: FindingRow["severity"]) => {
-    const xml = buildFindingsTable([row({ severity })]);
-    const cellStart = xml.lastIndexOf("<w:tc>", xml.indexOf(`>${severity}<`));
-    return /w:fill="([0-9A-F]{6})"/.exec(xml.slice(cellStart))?.[1];
-  };
+test("each severity carries the template's own character style", () => {
+  const styles = {
+    Critical: "Critical",
+    High: "High",
+    Medium: "Medium",
+    Low: "Low",
+    Informational: "Info",
+  } as const;
 
-  const fills = (["Critical", "High", "Medium", "Low", "Informational"] as const).map(fillFor);
+  for (const [severity, style] of Object.entries(styles)) {
+    const xml = buildFindingsTable([row({ severity: severity as FindingRow["severity"] })]);
+    assert.ok(
+      xml.includes(`<w:rStyle w:val="${style}"/>`),
+      `${severity} should use the ${style} character style`
+    );
+  }
+});
 
-  assert.ok(
-    fills.every((fill) => fill !== undefined),
-    "every severity is shaded"
-  );
-  assert.equal(new Set(fills).size, 5, "five distinct colours");
+test("the severity cell is coloured by style, not by shading", () => {
+  // The template colours the text; shading the cell would not be the house style.
+  const xml = buildFindingsTable([row({ severity: "Critical" })]);
+  const severityCell = xml.slice(xml.indexOf("<w:tr><w:tc"), xml.indexOf("</w:tbl>"));
+
+  assert.ok(!severityCell.includes('w:fill="A50021"'), "no fill on the severity cell");
+});
+
+test("the table uses the template's table style and enables its header row", () => {
+  const xml = buildFindingsTable([row()]);
+
+  assert.ok(xml.includes('<w:tblStyle w:val="Omegapointtabellbl"/>'));
+  // Without firstRow in tblLook the style's header banner never appears.
+  assert.ok(xml.includes('w:firstRow="1"'));
+  assert.ok(!xml.includes('w:fill="D9D9D9"'), "the style paints the header, not us");
+});
+
+test("the package defines the styles it names, or Word discards them", () => {
+  const xml = buildFindingsTable([row()]);
+
+  assert.ok(xml.includes('pkg:name="/word/styles.xml"'), "a styles part is present");
+  assert.ok(xml.includes('w:styleId="Omegapointtabellbl"'));
+  for (const style of ["Critical", "High", "Medium", "Low", "Info"]) {
+    assert.ok(xml.includes(`w:styleId="${style}"`), `${style} is defined as a fallback`);
+  }
 });
 
 test("a finding with no readable risk is still listed, without severity or score", () => {
