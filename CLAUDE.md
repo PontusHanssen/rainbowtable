@@ -160,9 +160,8 @@ surviving PDF export as internal links**. That rules out plain text and rules ou
   fires. Severities use the template's character styles `Critical`, `High`, `Medium`,
   `Low` and `Info`, which colour the **text** rather than shading the cell.
 - The template calls the lowest band **Info** (light blue, `00B0F0`) where the add-in says
-  Informational. `parseRisk` does not accept "Info" as a severity word, so a heading
-  reading `Risk: Info (2.0)` lands in the unreadable bucket — worth revisiting if reports
-  are written that way.
+  Informational. `parseRisk` accepts either spelling and both mean Informational — reports
+  are written with "Info", so refusing it silently skipped real findings.
 - Emit fields with a **cached result** — a `w:fldSimple` (or `fldChar` run pair) whose
   inner run holds the computed text. A field with an empty result renders blank until
   someone presses F9, and PDF export does not necessarily update fields first. Compute the
@@ -209,7 +208,6 @@ src/word/section.ts       scanning a section into findings, shared by both featu
 src/word/cvss.ts          CVSS 3.1 base score arithmetic, pure
 src/word/insertRisk.ts    feature 3 — insertRisk, undoRisk
 src/word/newFinding.ts    insertFinding, removeFinding — the empty finding skeleton
-src/word/inlineCode.ts    markdown `code` spans → the Code inline 2.0 character style
 src/word/http.ts          HTTP message tokenising, pure
 src/word/httpBlock.ts     feature 4 — insertHttpBlock, removeHttpBlock
 src/word/findingsTable.ts feature 2 — previewTable, insertFindingsTable, removeFindingsTable
@@ -328,10 +326,11 @@ changes need no version bump and no redeployment of the manifest.
 
 ## Icons
 
-`assets/icon-{16,32,64,80,128}.png` are generated from `logo.png` (a rainbow over a picnic
-table — the repo's name). Two things to know before regenerating them:
+`assets/icon-{16,32,64,80,128}.png` are a rainbow over a picnic table — the repo's name.
+The 2048px source is deliberately **not** in the repo. Regenerating them from a fresh
+source means repeating both steps below:
 
-- **`logo.png` has a checkerboard painted into it.** It looks transparent but every pixel
+- **The source had a checkerboard painted into it.** It looked transparent but every pixel
   is opaque: the grey-and-white squares are real. They must be keyed out, and because the
   sticker's interior is white too, a colour key is not enough — flood fill inwards from the
   four corners, which stops at the blue outline. PIL's `floodfill` threshold compares the
@@ -376,30 +375,3 @@ Where an action genuinely needs a selection, its button is disabled (`updateAvai
 in `findingsPanel.ts`), because a disabled button explains itself and a dead one does not.
 Note that `guard()` re-enables every button in its `finally`, so availability has to be
 reapplied afterwards; `act()` exists to do that.
-
-## Markdown-style inline code
-
-Backtick spans are converted to the template's **`Code inline 2.0`** character style, and
-the backticks are removed. Note the template also defines a *paragraph* style called
-`Code inline` and its linked `Code inline Char` — the 2.0 one is the character style meant
-for spans inside a sentence, and it is the one to apply.
-
-- Matching is done by **Word's wildcard search**, not a regular expression:
-  ``` `[!`]@` ``` — a backtick, one or more non-backtick characters, a backtick. A plain
-  `` `*` `` is greedy and would match from the first backtick on the line to the last,
-  swallowing the text between two separate spans.
-- Because Word's matcher does the work, the tests here only cover the surrounding logic.
-  **The matching itself can only be verified in Word.**
-- **Removing an event handler needs the RequestContext it was added in.** Every `Word.run`
-  creates a new context, so calling `remove()` inside a fresh one silently does nothing and
-  the handler keeps firing — which is exactly what happened when unchecking "convert as I
-  type" first shipped. Keep what `add()` returns and call `remove()` plus `sync()` on
-  `registration.context`. `watchInlineCode` also flips a `watching` flag the handler checks
-  first, so switching off takes effect at once and survives deregistration failing.
-- Live conversion (`watchInlineCode`) needs `Document.onParagraphChanged`, which is
-  **WordApi 1.6** — above the manifest's 1.4 floor. It is feature-detected with
-  `canWatch()` and the checkbox is hidden where unsupported, rather than raising the floor
-  for something optional. It converts only the paragraphs Word reports as changed, and it
-  cannot loop: converting a span removes the backticks that would match again.
-- On-demand conversion snapshots the whole body so it can be undone. The live path does
-  not — it removes backticks the user has only just typed.
