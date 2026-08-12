@@ -178,16 +178,44 @@ export function run(text: string, properties = ""): string {
  * not define is **discarded** — the paragraphs come out as Normal. Where the destination
  * document already defines a style with the same id, its own definition wins, so shipping
  * a definition is how content keeps a template's look without overriding it.
+ *
+ * `numbering` adds a numbering part, which lists need: a `w:numPr` pointing at a `w:numId`
+ * the package does not define is discarded the same way, leaving unindented paragraphs
+ * with no bullets.
  */
-export function wrapInPackage(body: string, styles?: string): string {
-  const stylesParts = styles
-    ? '<pkg:part pkg:name="/word/_rels/document.xml.rels" pkg:contentType="application/vnd.openxmlformats-package.relationships+xml" pkg:padding="256">' +
-      '<pkg:xmlData><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
-      '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>' +
-      "</Relationships></pkg:xmlData></pkg:part>" +
-      '<pkg:part pkg:name="/word/styles.xml" pkg:contentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml">' +
-      '<pkg:xmlData><w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">' +
-      `${styles}</w:styles></pkg:xmlData></pkg:part>`
+export function wrapInPackage(body: string, styles?: string, numbering?: string): string {
+  const relationship = (id: string, type: string, target: string) =>
+    `<Relationship Id="${id}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/${type}" Target="${target}"/>`;
+
+  const part = (name: string, contentType: string, xml: string) =>
+    `<pkg:part pkg:name="${name}" pkg:contentType="${contentType}">` +
+    `<pkg:xmlData>${xml}</pkg:xmlData></pkg:part>`;
+
+  const W = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"';
+  const references =
+    (styles ? relationship("rId1", "styles", "styles.xml") : "") +
+    (numbering ? relationship("rId2", "numbering", "numbering.xml") : "");
+
+  const extraParts = references
+    ? part(
+        "/word/_rels/document.xml.rels",
+        "application/vnd.openxmlformats-package.relationships+xml",
+        `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${references}</Relationships>`
+      ) +
+      (styles
+        ? part(
+            "/word/styles.xml",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml",
+            `<w:styles ${W}>${styles}</w:styles>`
+          )
+        : "") +
+      (numbering
+        ? part(
+            "/word/numbering.xml",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml",
+            `<w:numbering ${W}>${numbering}</w:numbering>`
+          )
+        : "")
     : "";
 
   return (
@@ -196,7 +224,7 @@ export function wrapInPackage(body: string, styles?: string): string {
     '<pkg:xmlData><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
     '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="/word/document.xml"/>' +
     "</Relationships></pkg:xmlData></pkg:part>" +
-    stylesParts +
+    extraParts +
     '<pkg:part pkg:name="/word/document.xml" pkg:contentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml">' +
     '<pkg:xmlData><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">' +
     `<w:body>${body}</w:body></w:document></pkg:xmlData></pkg:part></pkg:package>`

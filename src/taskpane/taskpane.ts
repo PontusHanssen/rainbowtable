@@ -1,11 +1,12 @@
 import { setUpFindingsPanel } from "./findingsPanel";
 import { setUpCvssPanel } from "./cvssPanel";
 import { setUpHttpPanel } from "./httpPanel";
+import { setUpMarkdownPanel } from "./markdownPanel";
 import { byId, show } from "./dom";
 
 /* global document, Office, HTMLButtonElement, NodeListOf */
 
-const PANELS = ["findings", "cvss", "http"];
+const PANELS = ["findings", "cvss", "http", "markdown"];
 
 function setUpTabs(): void {
   const tabs = document.querySelectorAll(".tab") as NodeListOf<HTMLButtonElement>;
@@ -28,4 +29,5 @@ Office.onReady(() => {
   setUpFindingsPanel();
   setUpCvssPanel();
   setUpHttpPanel();
+  setUpMarkdownPanel();
 });

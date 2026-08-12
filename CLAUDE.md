@@ -208,6 +208,8 @@ src/word/section.ts       scanning a section into findings, shared by both featu
 src/word/cvss.ts          CVSS 3.1 base score arithmetic, pure
 src/word/insertRisk.ts    feature 3 — insertRisk, undoRisk
 src/word/newFinding.ts    insertFinding, removeFinding — the empty finding skeleton
+src/word/markdown.ts      the markdown subset, parsed to blocks and spans (pure)
+src/word/markdownDoc.ts   those blocks rendered to OOXML and inserted
 src/word/http.ts          HTTP message tokenising, pure
 src/word/httpBlock.ts     feature 4 — insertHttpBlock, removeHttpBlock
 src/word/findingsTable.ts feature 2 — previewTable, insertFindingsTable, removeFindingsTable
@@ -375,3 +377,22 @@ Where an action genuinely needs a selection, its button is disabled (`updateAvai
 in `findingsPanel.ts`), because a disabled button explains itself and a dead one does not.
 Note that `guard()` re-enables every button in its `finally`, so availability has to be
 reapplied afterwards; `act()` exists to do that.
+
+## Writing a finding in markdown
+
+The Markdown tab parses a finding and inserts it at the cursor, previewing the outline
+first so a mistyped heading is caught before it reaches the document.
+
+- The supported subset is **headings, paragraphs, bold, italic, inline code, fenced code
+  blocks, bullet and numbered lists, and `<https://…>` autolinks** — deliberately not
+  CommonMark. Anything unrecognised stays literal rather than being dropped.
+- `#` lands at the finding's level under the section chosen on the Findings tab, `##` a
+  level below, and so on, so markdown and the New finding button produce the same shape.
+- `src/word/markdown.ts` is pure text-to-structure and is the best-covered code here; the
+  Word-facing half is only the rendering. Keep that split — it is why this feature could be
+  tested at all.
+- **Lists need a numbering part.** A `w:numPr` pointing at a `numId` the package does not
+  define is discarded exactly as an unknown style is, leaving plain unindented paragraphs.
+  `wrapInPackage(body, styles, numbering)` ships both.
+- Links are `HYPERLINK` fields rather than `w:hyperlink` elements, because a field needs no
+  relationship part — the same reason the findings table uses `REF` fields.

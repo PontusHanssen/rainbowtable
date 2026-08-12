@@ -119,6 +119,7 @@
 
         .status, .warnings, .error { font-size: 12px; }
         .status { color: var(--muted); }
+        #markdown-preview { white-space: pre-wrap; font-size: 11px; }
         .warnings { display: flex; flex-direction: column; gap: 3px; color: var(--warn); }
         .error { color: var(--error); }
 
@@ -162,8 +163,9 @@
 <body>
     <nav class="tabs" role="tablist">
         <button class="tab" role="tab" data-panel="findings" aria-selected="true">Findings</button>
-        <button class="tab" role="tab" data-panel="cvss" aria-selected="false">CVSS 3.1</button>
+        <button class="tab" role="tab" data-panel="cvss" aria-selected="false">CVSS</button>
         <button class="tab" role="tab" data-panel="http" aria-selected="false">HTTP</button>
+        <button class="tab" role="tab" data-panel="markdown" aria-selected="false">Markdown</button>
     </nav>
 
     <section class="panel" id="panel-findings">
@@ -236,6 +238,28 @@
         <p class="status" id="http-status"></p>
         <div class="warnings" id="http-warnings"></div>
         <p class="error" id="http-error"></p>
+    </section>
+
+    <section class="panel hidden" id="panel-markdown">
+        <div class="field">
+            <label for="markdown-input">Write the finding in markdown</label>
+            <textarea id="markdown-input" rows="14"
+                placeholder="# SQL injection in search&#10;&#10;## Description&#10;The `q` parameter is concatenated.&#10;&#10;- see &lt;https://owasp.org&gt;"></textarea>
+        </div>
+
+        <div class="status" id="markdown-preview"></div>
+
+        <button class="primary" id="markdown-insert">Insert at the cursor</button>
+        <button class="hidden" id="markdown-undo">Remove what was inserted</button>
+
+        <p class="status">
+            Headings nest under the section chosen on the Findings tab: <span class="vector">#</span>
+            becomes the finding, <span class="vector">##</span> its sections.
+        </p>
+
+        <p class="status" id="markdown-status"></p>
+        <div class="warnings" id="markdown-warnings"></div>
+        <p class="error" id="markdown-error"></p>
     </section>
 </body>
 
