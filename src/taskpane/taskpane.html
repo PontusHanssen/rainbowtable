@@ -163,7 +163,7 @@
     <nav class="tabs" role="tablist">
         <button class="tab" role="tab" data-panel="findings" aria-selected="true">Findings</button>
         <button class="tab" role="tab" data-panel="cvss" aria-selected="false">CVSS 3.1</button>
-        <button class="tab" role="tab" data-panel="http" aria-selected="false">HTTP</button>
+        <button class="tab" role="tab" data-panel="http" aria-selected="false">Code</button>
     </nav>
 
     <section class="panel" id="panel-findings">
@@ -232,6 +232,23 @@
             Pasting here rather than into Word keeps the message exactly as Burp gave it —
             autocorrect and smart quotes would otherwise alter your evidence.
         </p>
+
+        <hr style="border:0;border-top:1px solid var(--line);width:100%;margin:4px 0">
+
+        <div class="field">
+            <label>Markdown-style inline code</label>
+            <span class="status">
+                Turns <span class="vector">`backticked`</span> spans into the template's
+                inline code style, dropping the backticks. Runs over the selection if there
+                is one, otherwise the whole document.
+            </span>
+        </div>
+
+        <button id="inline-convert">Format `code` spans</button>
+        <label class="status hidden" id="inline-watch-row">
+            <input type="checkbox" id="inline-watch"> Convert as I type (experimental)
+        </label>
+        <button class="hidden" id="inline-undo">Undo the last conversion</button>
 
         <p class="status" id="http-status"></p>
         <div class="warnings" id="http-warnings"></div>

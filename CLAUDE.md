@@ -199,6 +199,7 @@ src/word/section.ts       scanning a section into findings, shared by both featu
 src/word/cvss.ts          CVSS 3.1 base score arithmetic, pure
 src/word/insertRisk.ts    feature 3 — insertRisk, undoRisk
 src/word/newFinding.ts    insertFinding, removeFinding — the empty finding skeleton
+src/word/inlineCode.ts    markdown `code` spans → the Code inline 2.0 character style
 src/word/http.ts          HTTP message tokenising, pure
 src/word/httpBlock.ts     feature 4 — insertHttpBlock, removeHttpBlock
 src/word/findingsTable.ts feature 2 — previewTable, insertFindingsTable, removeFindingsTable
@@ -365,3 +366,24 @@ Where an action genuinely needs a selection, its button is disabled (`updateAvai
 in `findingsPanel.ts`), because a disabled button explains itself and a dead one does not.
 Note that `guard()` re-enables every button in its `finally`, so availability has to be
 reapplied afterwards; `act()` exists to do that.
+
+## Markdown-style inline code
+
+Backtick spans are converted to the template's **`Code inline 2.0`** character style, and
+the backticks are removed. Note the template also defines a *paragraph* style called
+`Code inline` and its linked `Code inline Char` — the 2.0 one is the character style meant
+for spans inside a sentence, and it is the one to apply.
+
+- Matching is done by **Word's wildcard search**, not a regular expression:
+  ``` `[!`]@` ``` — a backtick, one or more non-backtick characters, a backtick. A plain
+  `` `*` `` is greedy and would match from the first backtick on the line to the last,
+  swallowing the text between two separate spans.
+- Because Word's matcher does the work, the tests here only cover the surrounding logic.
+  **The matching itself can only be verified in Word.**
+- Live conversion (`watchInlineCode`) needs `Document.onParagraphChanged`, which is
+  **WordApi 1.6** — above the manifest's 1.4 floor. It is feature-detected with
+  `canWatch()` and the checkbox is hidden where unsupported, rather than raising the floor
+  for something optional. It converts only the paragraphs Word reports as changed, and it
+  cannot loop: converting a span removes the backticks that would match again.
+- On-demand conversion snapshots the whole body so it can be undone. The live path does
+  not — it removes backticks the user has only just typed.
