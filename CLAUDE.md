@@ -313,3 +313,18 @@ under Add-ins → My Organization for each person to add once.
 Bump `<Version>` in `manifest.xml` whenever the manifest itself changes — new URLs, ribbon
 entries, or a raised requirement set — or Word will keep the copy it already has. Asset-only
 changes need no version bump and no redeployment of the manifest.
+
+## Icons
+
+`assets/icon-{16,32,64,80,128}.png` are generated from `logo.png` (a rainbow over a picnic
+table — the repo's name). Two things to know before regenerating them:
+
+- **`logo.png` has a checkerboard painted into it.** It looks transparent but every pixel
+  is opaque: the grey-and-white squares are real. They must be keyed out, and because the
+  sticker's interior is white too, a colour key is not enough — flood fill inwards from the
+  four corners, which stops at the blue outline. PIL's `floodfill` threshold compares the
+  *sum* across channels, so it needs to exceed ~117 (grey to white) and stay under ~275
+  (grey to the blue outline); 150 works.
+- The full sticker is kept at every size rather than cropping tighter for the small ones.
+  The white disc is what keeps the icon legible against a dark ribbon, and one crop for all
+  sizes means the icon does not change shape as display scaling changes.
