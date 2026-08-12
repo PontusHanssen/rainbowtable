@@ -61,7 +61,6 @@
             padding: 14px;
         }
 
-        .panel.hidden, .hidden { display: none; }
 
         label {
             font-size: 12px;
@@ -146,6 +145,11 @@
         .score-number { font-size: 26px; font-weight: 600; line-height: 1; }
         .score-severity { font-weight: 600; }
 
+        /* Utility, so it must beat any component rule that sets display. Equal
+           specificity is decided by source order, which is what left the confirm
+           block visible with an empty button. */
+        .hidden { display: none !important; }
+
         .vector {
             font-family: Consolas, "Courier New", monospace;
             font-size: 12px;
@@ -171,6 +175,7 @@
         <div class="actions">
             <button class="primary" id="findings-sort">Sort findings by severity</button>
             <button id="findings-table">Insert findings table</button>
+            <button id="findings-new">New finding at cursor</button>
             <button class="subtle" id="findings-rescan">Rescan document</button>
         </div>
 
@@ -201,7 +206,7 @@
         <button class="primary" id="cvss-insert">Write the risk at the cursor</button>
         <button class="hidden" id="cvss-undo">Undo the last risk</button>
 
-        <p class="status">
+        <p class="status">OffOff
             Put the cursor on the finding's "Risk:" line. The vector goes on the line below,
             linked to the NVD calculator.
         </p>

@@ -2,13 +2,16 @@ import { Section, findSections, getHeadings } from "../word/headings";
 import { SkippedFinding } from "../word/section";
 import { previewSort, restoreSection, sortFindings } from "../word/sortFindings";
 import { insertFindingsTable, previewTable, removeFindingsTable } from "../word/findingsTable";
+import { insertFinding, removeFinding } from "../word/newFinding";
 import { Feedback, byId, feedbackFor, guard, make, show } from "./dom";
 
 /* global HTMLButtonElement, HTMLSelectElement */
 
 /** A completed action that can still be taken back. Word's own undo cannot reach ours. */
 type Undoable =
-  { kind: "sort"; section: Section; snapshot: string } | { kind: "table"; bookmark: string };
+  | { kind: "sort"; section: Section; snapshot: string }
+  | { kind: "table"; bookmark: string }
+  | { kind: "finding"; bookmark: string };
 
 const describe = ({ title, reason }: SkippedFinding) => `"${title}" — ${reason}`;
 
@@ -23,6 +26,7 @@ export function setUpFindingsPanel(): void {
   const select = byId<HTMLSelectElement>("findings-section");
   const sort = byId<HTMLButtonElement>("findings-sort");
   const table = byId<HTMLButtonElement>("findings-table");
+  const create = byId<HTMLButtonElement>("findings-new");
   const rescan = byId<HTMLButtonElement>("findings-rescan");
   const undo = byId<HTMLButtonElement>("findings-undo");
   const confirm = byId("findings-confirm");
@@ -31,7 +35,7 @@ export function setUpFindingsPanel(): void {
   const confirmNo = byId<HTMLButtonElement>("findings-confirm-no");
 
   const feedback: Feedback = feedbackFor("findings");
-  const buttons = [sort, table, rescan, undo, confirmYes, confirmNo];
+  const buttons = [sort, table, create, rescan, undo, confirmYes, confirmNo];
 
   let sections: Section[] = [];
   let undoable: Undoable | undefined;
@@ -41,7 +45,12 @@ export function setUpFindingsPanel(): void {
   const setUndoable = (next: Undoable | undefined) => {
     undoable = next;
     show(undo, next !== undefined);
-    undo.textContent = next?.kind === "sort" ? "Undo the last sort" : "Remove the inserted table";
+    const labels = {
+      sort: "Undo the last sort",
+      table: "Remove the inserted table",
+      finding: "Remove the new finding",
+    };
+    undo.textContent = next ? labels[next.kind] : "";
   };
 
   const hideConfirm = () => show(confirm, false);
@@ -105,6 +114,24 @@ export function setUpFindingsPanel(): void {
         result.skipped.map((finding) => `Listed without a severity: ${describe(finding)}`)
       );
       setUndoable({ kind: "table", bookmark: result.bookmark });
+      await scan(false);
+    });
+
+  create.onclick = () =>
+    guard(buttons, feedback, async () => {
+      const section = selected();
+      if (!section) {
+        return;
+      }
+      feedback.reset();
+      hideConfirm();
+      setUndoable(undefined);
+
+      const result = await insertFinding(section);
+      feedback.status(
+        `Inserted an empty finding at heading level ${result.level}. Fill in the [TODO] parts.`
+      );
+      setUndoable({ kind: "finding", bookmark: result.bookmark });
       await scan(false);
     });
 
@@ -188,9 +215,12 @@ export function setUpFindingsPanel(): void {
       if (undoable.kind === "sort") {
         await restoreSection(undoable.section, undoable.snapshot);
         feedback.status("Undone — the findings are back in their original order.");
-      } else {
+      } else if (undoable.kind === "table") {
         await removeFindingsTable(undoable.bookmark);
         feedback.status("Removed the inserted table.");
+      } else {
+        await removeFinding(undoable.bookmark);
+        feedback.status("Removed the new finding.");
       }
       setUndoable(undefined);
       await scan(false);

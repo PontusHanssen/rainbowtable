@@ -198,6 +198,7 @@ src/word/sortFindings.ts  feature 1 — previewSort, sortFindings, restoreSectio
 src/word/section.ts       scanning a section into findings, shared by both features
 src/word/cvss.ts          CVSS 3.1 base score arithmetic, pure
 src/word/insertRisk.ts    feature 3 — insertRisk, undoRisk
+src/word/newFinding.ts    insertFinding, removeFinding — the empty finding skeleton
 src/word/http.ts          HTTP message tokenising, pure
 src/word/httpBlock.ts     feature 4 — insertHttpBlock, removeHttpBlock
 src/word/findingsTable.ts feature 2 — previewTable, insertFindingsTable, removeFindingsTable
@@ -328,3 +329,24 @@ table — the repo's name). Two things to know before regenerating them:
 - The full sticker is kept at every size rather than cropping tighter for the small ones.
   The white disc is what keeps the icon legible against a dark ribbon, and one crop for all
   sizes means the icon does not change shape as display scaling changes.
+
+## Inserting a new finding
+
+`insertFinding` writes an empty finding at the cursor: title, `Risk: [TODO]`, Status,
+Description, Technical details, Proof of concept, Recommendation, with `[TODO]` bodies.
+
+- Heading levels come from the **section chosen in the task pane**, not from whatever the
+  cursor happens to sit on. A finding belongs to a section, and reading the level off the
+  selection guesses wrong the moment the cursor is on a body paragraph.
+- It uses `insertParagraph` and `styleBuiltIn`, not OOXML. Setting the built-in style picks
+  up the document's own heading styles including their numbering, where a hand-built
+  package would have to define those styles and risk overriding the template's.
+- `Risk: [TODO]` deliberately does not parse, so a half-written finding shows up in the
+  sort and table pre-flight warnings until it is scored.
+
+## A note on the `hidden` class
+
+`.hidden` in `taskpane.html` carries `!important`. Component rules like `.confirm` also set
+`display`, and at equal specificity the later rule wins — which once left the confirmation
+block on screen with an empty button. Any new utility class that hides things needs the
+same treatment, or it must come last.
