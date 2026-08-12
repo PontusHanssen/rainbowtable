@@ -390,6 +390,12 @@ for spans inside a sentence, and it is the one to apply.
   swallowing the text between two separate spans.
 - Because Word's matcher does the work, the tests here only cover the surrounding logic.
   **The matching itself can only be verified in Word.**
+- **Removing an event handler needs the RequestContext it was added in.** Every `Word.run`
+  creates a new context, so calling `remove()` inside a fresh one silently does nothing and
+  the handler keeps firing — which is exactly what happened when unchecking "convert as I
+  type" first shipped. Keep what `add()` returns and call `remove()` plus `sync()` on
+  `registration.context`. `watchInlineCode` also flips a `watching` flag the handler checks
+  first, so switching off takes effect at once and survives deregistration failing.
 - Live conversion (`watchInlineCode`) needs `Document.onParagraphChanged`, which is
   **WordApi 1.6** — above the manifest's 1.4 floor. It is feature-detected with
   `canWatch()` and the checkbox is hidden where unsupported, rather than raising the floor

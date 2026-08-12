@@ -120,11 +120,16 @@ async function convertInParagraph(context: Word.RequestContext, id: string): Pro
  *
  * Returns a function that stops watching. Needs WordApi 1.6 — check `canWatch` first.
  */
-export async function watchInlineCode(onConverted: (count: number) => void): Promise<() => void> {
+export async function watchInlineCode(
+  onConverted: (count: number) => void
+): Promise<() => Promise<void>> {
   let running = false;
+  // Checked first thing in the handler. Deregistration below is the real mechanism, but
+  // this makes switching off take effect immediately and survives it failing.
+  let watching = true;
 
   const handler = async (args: Word.ParagraphChangedEventArgs) => {
-    if (running) {
+    if (!watching || running) {
       return;
     }
     running = true;
@@ -144,15 +149,19 @@ export async function watchInlineCode(onConverted: (count: number) => void): Pro
     }
   };
 
-  await Word.run(async (context) => {
-    context.document.onParagraphChanged.add(handler);
+  // The registration has to be kept: a handler can only be removed through the same
+  // RequestContext it was added in, and every Word.run creates a new one. Calling
+  // remove() on a fresh context silently does nothing and the handler keeps firing.
+  const registration = await Word.run(async (context) => {
+    const added = context.document.onParagraphChanged.add(handler);
     await context.sync();
+    return added;
   });
 
-  return () => {
-    Word.run(async (context) => {
-      context.document.onParagraphChanged.remove(handler);
-      await context.sync();
-    });
+  return async () => {
+    watching = false;
+    // Removed through the context it was added in, then synced on that same context.
+    registration.remove();
+    await registration.context.sync();
   };
 }

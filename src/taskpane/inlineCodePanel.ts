@@ -15,7 +15,7 @@ export function setUpInlineCodePanel(feedback: Feedback): void {
 
   const buttons = [convert, undo];
   let snapshot: string | undefined;
-  let stopWatching: (() => void) | undefined;
+  let stopWatching: (() => Promise<void>) | undefined;
 
   const report = (converted: number, scope: string) =>
     feedback.status(
@@ -58,12 +58,12 @@ export function setUpInlineCodePanel(feedback: Feedback): void {
         );
         feedback.status("Watching for `code` spans. Leave the pane open.");
       } else {
-        stopWatching?.();
+        await stopWatching?.();
         stopWatching = undefined;
         feedback.status("No longer watching.");
       }
     } catch (err) {
-      watch.checked = false;
+      watch.checked = stopWatching !== undefined;
       feedback.error(String(err));
     }
   };
