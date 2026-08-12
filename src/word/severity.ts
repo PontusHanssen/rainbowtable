@@ -18,7 +18,22 @@ export interface Risk {
  * template is a Swedish-language document.
  */
 const RISK_HEADING =
-  /^Risk:\s*(Critical|High|Medium|Low|Informational)\s*(?:\(\s*(\d+(?:[.,]\d+)?)\s*\))?\s*$/i;
+  /^Risk:\s*(Critical|High|Medium|Low|Info(?:rmational)?)\s*(?:\(\s*(\d+(?:[.,]\d+)?)\s*\))?\s*$/i;
+
+/**
+ * The severity a rating word names.
+ *
+ * The report template's own risk scale writes the lowest band as "Info" while the add-in
+ * calls it Informational. Both are accepted and mean the same severity; the optional
+ * group in the pattern is what keeps "Informational" from matching only its first four
+ * letters and failing on the rest.
+ */
+function toSeverity(word: string): Severity | undefined {
+  const lower = word.toLowerCase();
+  return lower.startsWith("info")
+    ? "Informational"
+    : SEVERITIES.find((candidate) => candidate.toLowerCase() === lower);
+}
 
 /** Recognises a heading that is *meant* to be a risk rating, well-formed or not. */
 export function isRiskHeading(text: string): boolean {
@@ -32,9 +47,7 @@ export function parseRisk(text: string): Risk | undefined {
     return undefined;
   }
 
-  const severity = SEVERITIES.find(
-    (candidate) => candidate.toLowerCase() === match[1].toLowerCase()
-  );
+  const severity = toSeverity(match[1]);
   if (!severity) {
     return undefined;
   }

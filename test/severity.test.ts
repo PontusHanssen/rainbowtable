@@ -62,3 +62,18 @@ test("compareRisk puts scored findings ahead of unscored ones of the same severi
   assert.ok(compareRisk({ severity: "High" }, { severity: "High", score: 1 }) > 0);
   assert.equal(compareRisk({ severity: "High" }, { severity: "High" }), 0);
 });
+
+test('the template\'s "Info" is accepted for Informational', () => {
+  // The report template's own risk scale writes Info, not Informational.
+  assert.deepEqual(parseRisk("Risk: Info (2.0)"), { severity: "Informational", score: 2 });
+  assert.deepEqual(parseRisk("Risk: Info"), { severity: "Informational" });
+  assert.deepEqual(parseRisk("risk: INFO (0.0)"), { severity: "Informational", score: 0 });
+
+  // Both spellings mean the same thing.
+  assert.deepEqual(parseRisk("Risk: Informational (2.0)"), parseRisk("Risk: Info (2.0)"));
+});
+
+test("a word merely starting with Info is not a severity", () => {
+  assert.equal(parseRisk("Risk: Infomercial"), undefined);
+  assert.equal(parseRisk("Risk: Informative (2.0)"), undefined);
+});

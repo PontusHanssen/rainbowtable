@@ -1,7 +1,6 @@
 import { highlightHttp } from "../word/http";
 import { insertHttpBlock, removeHttpBlock } from "../word/httpBlock";
 import { byId, feedbackFor, guard, show } from "./dom";
-import { setUpInlineCodePanel } from "./inlineCodePanel";
 
 /* global HTMLButtonElement, HTMLTextAreaElement */
 
@@ -64,6 +63,5 @@ export function setUpHttpPanel(): void {
       feedback.status("Removed the inserted block.");
     });
 
-  setUpInlineCodePanel(feedback);
   describe();
 }
