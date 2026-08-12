@@ -42,6 +42,18 @@ export function setUpFindingsPanel(): void {
 
   const selected = () => sections.find((section) => key(section) === select.value);
 
+  /** Sorting and tabulating need an existing section; creating a finding does not. */
+  const updateAvailability = () => {
+    const available = sections.length > 0;
+    sort.disabled = !available;
+    table.disabled = !available;
+    select.disabled = !available;
+  };
+
+  /** Run an action, then restore which buttons make sense — guard() enables them all. */
+  const act = (action: () => Promise<void>) =>
+    guard(buttons, feedback, action).then(updateAvailability);
+
   const setUndoable = (next: Undoable | undefined) => {
     undoable = next;
     show(undo, next !== undefined);
@@ -76,13 +88,16 @@ export function setUpFindingsPanel(): void {
     }
     if (announce) {
       feedback.status(
-        `${sections.length} section${sections.length === 1 ? "" : "s"} with findings.`
+        sections.length === 0
+          ? 'No sections with findings yet — use "New finding at cursor" to start one.'
+          : `${sections.length} section${sections.length === 1 ? "" : "s"} with findings.`
       );
     }
+    updateAvailability();
   };
 
   const refresh = () =>
-    guard(buttons, feedback, async () => {
+    act(async () => {
       feedback.reset();
       hideConfirm();
       setUndoable(undefined);
@@ -90,7 +105,7 @@ export function setUpFindingsPanel(): void {
     });
 
   const applySort = (section: Section) =>
-    guard(buttons, feedback, async () => {
+    act(async () => {
       hideConfirm();
       const result = await sortFindings(section);
       feedback.status(
@@ -106,7 +121,7 @@ export function setUpFindingsPanel(): void {
     });
 
   const applyTable = (section: Section) =>
-    guard(buttons, feedback, async () => {
+    act(async () => {
       hideConfirm();
       const result = await insertFindingsTable(section);
       feedback.status(`Inserted a table of ${result.rows} finding${result.rows === 1 ? "" : "s"}.`);
@@ -118,18 +133,17 @@ export function setUpFindingsPanel(): void {
     });
 
   create.onclick = () =>
-    guard(buttons, feedback, async () => {
+    act(async () => {
       const section = selected();
-      if (!section) {
-        return;
-      }
       feedback.reset();
       hideConfirm();
       setUndoable(undefined);
 
       const result = await insertFinding(section);
       feedback.status(
-        `Inserted an empty finding at heading level ${result.level}. Fill in the [TODO] parts.`
+        `Inserted an empty finding at heading level ${result.level}` +
+          (section ? `, matching "${section.heading.text}".` : ", the template's depth.") +
+          " Fill in the [TODO] parts."
       );
       setUndoable({ kind: "finding", bookmark: result.bookmark });
       await scan(false);
@@ -155,12 +169,13 @@ export function setUpFindingsPanel(): void {
   };
 
   sort.onclick = () =>
-    guard(buttons, feedback, async () => {
+    act(async () => {
       const section = selected();
+      feedback.reset();
       if (!section) {
+        feedback.status("Select a section first — this document has none with findings yet.");
         return;
       }
-      feedback.reset();
       hideConfirm();
       setUndoable(undefined);
 
@@ -183,12 +198,13 @@ export function setUpFindingsPanel(): void {
     });
 
   table.onclick = () =>
-    guard(buttons, feedback, async () => {
+    act(async () => {
       const section = selected();
+      feedback.reset();
       if (!section) {
+        feedback.status("Select a section first — this document has none with findings yet.");
         return;
       }
-      feedback.reset();
       hideConfirm();
       setUndoable(undefined);
 
@@ -207,7 +223,7 @@ export function setUpFindingsPanel(): void {
     });
 
   undo.onclick = () =>
-    guard(buttons, feedback, async () => {
+    act(async () => {
       if (!undoable) {
         return;
       }

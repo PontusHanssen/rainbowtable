@@ -31,6 +31,14 @@ type BuiltInStyle = (typeof HEADING_STYLES)[number] | "Normal";
 const DEEPEST_FINDING = HEADING_STYLES.length - 1;
 
 /**
+ * Where findings sit when there is no section to take a level from: the shape the report
+ * template uses, a Heading2 title over Heading3 sections. This matters because the first
+ * finding in a section has to be creatable *before* any section is detectable — a section
+ * is only recognised once it already contains findings.
+ */
+export const DEFAULT_FINDING_LEVEL = 2;
+
+/**
  * The skeleton of a finding, mirroring the report template: a title, the risk rating the
  * CVSS tab fills in, then the prose sections. `level` is the finding's own heading level;
  * its sections sit one below.
@@ -55,19 +63,26 @@ function skeleton(level: number): { style: BuiltInStyle; text: string }[] {
   ];
 }
 
+/** The heading level a new finding's title takes. Exported for testing. */
 /**
  * Insert an empty finding at the cursor, ready to fill in.
  *
  * The heading levels come from the section chosen in the task pane rather than from
  * whatever surrounds the cursor: a finding belongs to a section, and reading the level off
- * the selection would guess wrong whenever the cursor sat on a body paragraph.
+ * the selection would guess wrong whenever the cursor sat on a body paragraph. With no
+ * section chosen it falls back to the template's depth rather than refusing, so an empty
+ * section can be filled.
  *
  * Built from `insertParagraph` rather than OOXML on purpose. Setting `styleBuiltIn` picks
  * up the document's own heading styles, numbering included, where a hand-built package
  * would have to define those styles and would risk overriding them.
  */
-export async function insertFinding(section: Section): Promise<NewFinding> {
-  const level = Math.min(section.heading.level + 1, DEEPEST_FINDING);
+export function findingLevelFor(section?: Section): number {
+  return section ? Math.min(section.heading.level + 1, DEEPEST_FINDING) : DEFAULT_FINDING_LEVEL;
+}
+
+export async function insertFinding(section?: Section): Promise<NewFinding> {
+  const level = findingLevelFor(section);
   const blocks = skeleton(level);
 
   return Word.run(async (context) => {

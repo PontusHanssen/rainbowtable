@@ -338,6 +338,11 @@ Description, Technical details, Proof of concept, Recommendation, with `[TODO]` 
 - Heading levels come from the **section chosen in the task pane**, not from whatever the
   cursor happens to sit on. A finding belongs to a section, and reading the level off the
   selection guesses wrong the moment the cursor is on a body paragraph.
+- **It must work with no section selected.** `findSections` only reports a section that
+  already contains findings, so the first finding in a section exists before the section is
+  detectable — requiring a selection made the button do nothing precisely when it was most
+  needed. With nothing selected it falls back to `DEFAULT_FINDING_LEVEL`, the template's
+  depth, and says so in the status line.
 - It uses `insertParagraph` and `styleBuiltIn`, not OOXML. Setting the built-in style picks
   up the document's own heading styles including their numbering, where a hand-built
   package would have to define those styles and risk overriding the template's.
@@ -350,3 +355,13 @@ Description, Technical details, Proof of concept, Recommendation, with `[TODO]` 
 `display`, and at equal specificity the later rule wins — which once left the confirmation
 block on screen with an empty button. Any new utility class that hides things needs the
 same treatment, or it must come last.
+
+## Never fail silently
+
+A task pane button that returns early without saying why is indistinguishable from a
+broken one — this happened once already, when all three findings buttons returned quietly
+if no section was selected. Every action either does something or reports why it cannot.
+Where an action genuinely needs a selection, its button is disabled (`updateAvailability`
+in `findingsPanel.ts`), because a disabled button explains itself and a dead one does not.
+Note that `guard()` re-enables every button in its `finally`, so availability has to be
+reapplied afterwards; `act()` exists to do that.
