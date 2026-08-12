@@ -314,7 +314,15 @@ Firefox keeps its own store and needs a separate import.
 ## Deploying
 
 `npm run build` produces `dist/`, which is the whole site: task pane, commands page,
-icons, and a `manifest.xml` rewritten to the production origin. Pushing to master runs
+icons, and a `manifest.xml` rewritten for production.
+
+**The manifest in the repo is the development one** — sideload it to run against
+`npm run dev-server`; sideload `dist/manifest.xml` for the released add-in. They carry
+different `<Id>` and `DisplayName` values so both can be installed at once: Word keys an
+add-in on its Id, so sharing one would make them the same add-in and you could only have
+one. The production build rewrites the Id, the name and every URL, so **only the dev
+values are ever edited by hand** — see the transform in `webpack.config.js`. The pane
+shows a small "dev" badge when it is served from localhost. Pushing to master runs
 `.github/workflows/deploy.yml`, which tests, builds and publishes `dist/` to GitHub Pages.
 
 To install the add-in in Word, the manifest from `dist/manifest.xml` has to reach users:

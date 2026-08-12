@@ -8,6 +8,14 @@ const CopyWebpackPlugin = require("copy-webpack-plugin");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
 
 const urlDev = "https://localhost:3000/";
+
+// The manifest in the repo is the development one. A production build rewrites its
+// identity as well as its URLs, so the two can be installed side by side: Word keys an
+// add-in on its Id, and two manifests sharing one Id are the same add-in to it.
+const idDev = "28e24980-9bb4-4067-8dd5-39ff5e60b659";
+const idProd = "0c55e6ce-b81a-46cf-a933-0bf2c197ae7b";
+const nameDev = "Rainbowtable (dev)";
+const nameProd = "Rainbowtable";
 const urlProd = "https://pontushanssen.github.io/rainbowtable/"; // GitHub Pages, see .github/workflows/deploy.yml
 
 // office-addin-dev-certs installs its CA into a trust path that does not exist on
@@ -90,7 +98,11 @@ module.exports = async (env, options) => {
                 // pointing at localhost in the built manifest.
                 const from = urlDev.replace(/\/+$/, "");
                 const to = urlProd.replace(/\/+$/, "");
-                return content.toString().replace(new RegExp(from, "g"), to);
+                return content
+                  .toString()
+                  .replace(new RegExp(from, "g"), to)
+                  .replace(idDev, idProd)
+                  .replace(new RegExp(nameDev.replace(/[()]/g, "\\$&"), "g"), nameProd);
               }
             },
           },
