@@ -2,18 +2,16 @@
 <OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0" xmlns:ov="http://schemas.microsoft.com/office/taskpaneappversionoverrides" xsi:type="TaskPaneApp">
   <Id>0c55e6ce-b81a-46cf-a933-0bf2c197ae7b</Id>
   <Version>1.0.0.0</Version>
-  <ProviderName>Omegapoint</ProviderName>
+  <ProviderName>Rainbowtable</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
-  <DisplayName DefaultValue="Pentest Report Tools"/>
+  <DisplayName DefaultValue="Rainbowtable"/>
   <Description DefaultValue="Sort pentest findings by severity and insert a rainbow findings table."/>
   <IconUrl DefaultValue="https://localhost:3000/assets/icon-32.png"/>
   <HighResolutionIconUrl DefaultValue="https://localhost:3000/assets/icon-64.png"/>
-  <SupportUrl DefaultValue="https://github.com/pwntus/word-addins"/>
-  <!-- TODO: when hosting from SharePoint, add that origin here and replace every
-       https://localhost:3000 URL below with the SharePoint library URL. -->
-  <AppDomains>
-    <AppDomain>https://localhost:3000</AppDomain>
-  </AppDomains>
+  <SupportUrl DefaultValue="https://github.com/PontusHanssen/rainbowtable"/>
+  <!-- No AppDomains element: every URL below is on the add-in's own origin, which is
+       always allowed. It is only needed to permit navigation to *other* domains, and the
+       build rewrites localhost to the production origin (webpack.config.js, urlProd). -->
   <Hosts>
     <Host Name="Document"/>
   </Hosts>
@@ -81,8 +79,8 @@
         <bt:Url id="Taskpane.Url" DefaultValue="https://localhost:3000/taskpane.html"/>
       </bt:Urls>
       <bt:ShortStrings>
-        <bt:String id="GetStarted.Title" DefaultValue="Pentest Report Tools"/>
-        <bt:String id="CommandsGroup.Label" DefaultValue="Pentest Report"/>
+        <bt:String id="GetStarted.Title" DefaultValue="Rainbowtable"/>
+        <bt:String id="CommandsGroup.Label" DefaultValue="Rainbowtable"/>
         <bt:String id="TaskpaneButton.Label" DefaultValue="Report Tools"/>
       </bt:ShortStrings>
       <bt:LongStrings>

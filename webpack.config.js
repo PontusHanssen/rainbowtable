@@ -9,7 +9,7 @@ const HtmlWebpackPlugin = require("html-webpack-plugin");
 const webpack = require("webpack");
 
 const urlDev = "https://localhost:3000/";
-const urlProd = "https://www.contoso.com/"; // CHANGE THIS TO YOUR PRODUCTION DEPLOYMENT LOCATION
+const urlProd = "https://pontushanssen.github.io/rainbowtable/"; // GitHub Pages, see .github/workflows/deploy.yml
 
 // office-addin-dev-certs installs its CA into a trust path that does not exist on
 // Fedora, and getHttpsServerOptions() retries that install on every start — which hangs
@@ -36,18 +36,14 @@ module.exports = async (env, options) => {
     devtool: "source-map",
     entry: {
       polyfill: ["core-js/stable", "regenerator-runtime/runtime"],
-      react: ["react", "react-dom"],
-      taskpane: {
-        import: ["./src/taskpane/index.tsx", "./src/taskpane/taskpane.html"],
-        dependOn: "react",
-      },
+      taskpane: ["./src/taskpane/taskpane.ts", "./src/taskpane/taskpane.html"],
       commands: "./src/commands/commands.ts",
     },
     output: {
       clean: true,
     },
     resolve: {
-      extensions: [".ts", ".tsx", ".html", ".js"],
+      extensions: [".ts", ".html", ".js"],
     },
     module: {
       rules: [
@@ -57,11 +53,6 @@ module.exports = async (env, options) => {
           use: {
             loader: "babel-loader",
           },
-        },
-        {
-          test: /\.tsx?$/,
-          exclude: /node_modules/,
-          use: ["ts-loader"],
         },
         {
           test: /\.html$/,
@@ -81,7 +72,7 @@ module.exports = async (env, options) => {
       new HtmlWebpackPlugin({
         filename: "taskpane.html",
         template: "./src/taskpane/taskpane.html",
-        chunks: ["polyfill", "taskpane", "react"],
+        chunks: ["polyfill", "taskpane"],
       }),
       new CopyWebpackPlugin({
         patterns: [

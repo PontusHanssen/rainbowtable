@@ -27,21 +27,26 @@ don't build it.
 
 ## Stack
 
-- **TypeScript + React** taskpane, scaffolded from the Yeoman `office` generator
-  (`yo office`, projectType `react`, host `word`, TypeScript).
+- **TypeScript, no framework.** The task pane is plain DOM: `taskpane.html` holds the
+  markup and styles, and one module per panel wires it up. React and Fluent were removed
+  once it was clear three panels of buttons did not need them — the bundle went from
+  378 KB to 69 KB. Do not reintroduce a framework without a reason the DOM cannot meet.
 - **Office.js**, requirement set **WordApi 1.4** — the floor for the paragraph and OOXML
   APIs, plus `Range.insertBookmark` and `Document.getBookmarkRange`, which the findings
   table needs. This excludes Word 2019 and older; the add-in targets M365, where 1.4 has
   been available for years. It was raised from 1.3 deliberately: writing bookmarks through
   the API means the findings region is never rewritten just to add them, and it is what
   makes the inserted table removable again.
-- **XML manifest** (not the unified JSON manifest), sideloaded from a shared
-  SharePoint/OneDrive folder.
-- **Assets hosted in SharePoint.** Consequences for the build:
-  - output must be plain static files with **relative paths** and **stable filenames** —
-    no content-hashed bundles, since deployment is a manual upload over existing files;
-  - `SourceLocation` and `AppDomains` in the manifest point at the SharePoint library URL;
-  - nothing may be fetched from a CDN at runtime — bundle everything.
+- **XML manifest** (not the unified JSON manifest).
+- **Assets hosted on GitHub Pages** at `https://pontushanssen.github.io/rainbowtable/`,
+  deployed by `.github/workflows/deploy.yml` on every push to master. Consequences:
+  - `urlProd` in `webpack.config.js` is the production origin; a production build rewrites
+    every `https://localhost:3000` in the manifest to it, with or without a trailing slash;
+  - **the published site is world-readable**, even were the repo private. Nothing secret
+    may enter `dist/` — no client names, no findings, no internal URLs;
+  - filenames stay stable (no content hashes) so an asset update needs no manifest change;
+  - nothing may be fetched from a CDN at runtime except Office.js itself, which must come
+    from Microsoft.
 
 ## The document model
 
@@ -175,8 +180,12 @@ surviving PDF export as internal links**. That rules out plain text and rules ou
 
 ```
 manifest.xml              add-in manifest; localhost URLs must become SharePoint URLs to ship
-src/taskpane/             React entry point + taskpane shell
-src/taskpane/components/App.tsx   section picker and the two command buttons
+src/taskpane/taskpane.html      markup and styles for the whole pane
+src/taskpane/taskpane.ts        entry point: Office.onReady, tab switching
+src/taskpane/dom.ts             byId/show/make plus the per-panel feedback lines
+src/taskpane/findingsPanel.ts   section picker, sorting, findings table
+src/taskpane/cvssPanel.ts       CVSS metric buttons and the live score
+src/taskpane/httpPanel.ts       the Burp paste box
 src/word/headings.ts      heading scan and the relative section/finding model
 src/word/severity.ts      strict `Risk:` parsing and the sort comparator
 src/word/ooxml.ts         reordering paragraphs inside a captured OOXML package
@@ -189,7 +198,9 @@ src/word/httpBlock.ts     feature 4 — insertHttpBlock, removeHttpBlock
 src/word/findingsTable.ts feature 2 — previewTable, insertFindingsTable, removeFindingsTable
 ```
 
-Word-facing logic lives in `src/word/` and stays free of React; components call into it.
+Word-facing logic lives in `src/word/` and never touches the DOM; panels call into it.
+That split is what keeps the whole test suite runnable in node, and it is why replacing
+the UI framework did not disturb a single test.
 
 ## Commands
 
@@ -282,3 +293,18 @@ Firefox keeps its own store and needs a separate import.
 - Every run repeats Courier New 10pt. That duplicates what `Codeblock` already sets, so it
   costs nothing in this template, but keeps the block monospaced in a document that has no
   such style.
+
+## Deploying
+
+`npm run build` produces `dist/`, which is the whole site: task pane, commands page,
+icons, and a `manifest.xml` rewritten to the production origin. Pushing to master runs
+`.github/workflows/deploy.yml`, which tests, builds and publishes `dist/` to GitHub Pages.
+
+To install the add-in in Word, the manifest from `dist/manifest.xml` has to reach users:
+either through **Microsoft 365 admin centre → Integrated apps** (assigns it to people
+automatically, needs an admin), or the tenant **SharePoint App Catalog**, where it appears
+under Add-ins → My Organization for each person to add once.
+
+Bump `<Version>` in `manifest.xml` whenever the manifest itself changes — new URLs, ribbon
+entries, or a raised requirement set — or Word will keep the copy it already has. Asset-only
+changes need no version bump and no redeployment of the manifest.
