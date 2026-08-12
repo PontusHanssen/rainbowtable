@@ -22,14 +22,6 @@ const describe = ({ title, reason }: SkippedFinding) => `"${title}" — ${reason
  */
 const key = (section: Section) => String(section.heading.index);
 
-/**
- * The section currently chosen, for panels that need the same heading levels — the
- * markdown tab nests its headings under whatever the Findings tab is pointing at.
- */
-let chosen: Section | undefined;
-
-export const selectedSection = (): Section | undefined => chosen;
-
 export function setUpFindingsPanel(): void {
   const select = byId<HTMLSelectElement>("findings-section");
   const sort = byId<HTMLButtonElement>("findings-sort");
@@ -48,10 +40,7 @@ export function setUpFindingsPanel(): void {
   let sections: Section[] = [];
   let undoable: Undoable | undefined;
 
-  const selected = () => {
-    chosen = sections.find((section) => key(section) === select.value);
-    return chosen;
-  };
+  const selected = () => sections.find((section) => key(section) === select.value);
 
   /** Sorting and tabulating need an existing section; creating a finding does not. */
   const updateAvailability = () => {
@@ -104,7 +93,6 @@ export function setUpFindingsPanel(): void {
           : `${sections.length} section${sections.length === 1 ? "" : "s"} with findings.`
       );
     }
-    selected();
     updateAvailability();
   };
 
@@ -256,10 +244,7 @@ export function setUpFindingsPanel(): void {
 
   rescan.onclick = refresh;
   confirmNo.onclick = hideConfirm;
-  select.onchange = () => {
-    selected();
-    hideConfirm();
-  };
+  select.onchange = hideConfirm;
 
   refresh();
 }

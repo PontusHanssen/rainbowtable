@@ -3,29 +3,30 @@ import assert from "node:assert/strict";
 import { parseMarkdown } from "../src/word/markdown";
 import { buildMarkdown } from "../src/word/markdownDoc";
 
-const build = (source: string, base = 2) => buildMarkdown(parseMarkdown(source), base);
+const build = (source: string) => buildMarkdown(parseMarkdown(source));
 
-test("markdown headings are offset to sit under the chosen section", () => {
-  // `#` is the finding, `##` its sections — the same shape the New finding button makes.
-  const xml = build("# Finding\n\n## Description\n\n### Detail", 2);
+test("headings map straight across, # to Heading1", () => {
+  const xml = build("# Finding\n\n## Description\n\n### Detail");
 
+  assert.ok(xml.includes('<w:pStyle w:val="Heading1"/>'));
   assert.ok(xml.includes('<w:pStyle w:val="Heading2"/>'));
   assert.ok(xml.includes('<w:pStyle w:val="Heading3"/>'));
-  assert.ok(xml.includes('<w:pStyle w:val="Heading4"/>'));
 });
 
-test("a deeper section pushes the whole document down with it", () => {
-  const xml = build("# Finding\n\n## Description", 3);
+test("the package defines the heading styles it names", () => {
+  // Without these the pStyle references are discarded and headings arrive as body text.
+  const xml = build("# One\n\n###### Six");
 
-  assert.ok(xml.includes('<w:pStyle w:val="Heading3"/>'));
-  assert.ok(xml.includes('<w:pStyle w:val="Heading4"/>'));
-  assert.ok(!xml.includes('<w:pStyle w:val="Heading2"/>'));
+  for (let level = 1; level <= 6; level++) {
+    assert.ok(xml.includes(`w:styleId="Heading${level}"`), `Heading${level} is defined`);
+    assert.ok(xml.includes(`<w:name w:val="heading ${level}"/>`), "under Word's built-in name");
+  }
 });
 
-test("headings never run past Heading9", () => {
-  const xml = build("###### Deep", 9);
-  assert.ok(xml.includes('<w:pStyle w:val="Heading9"/>'));
-  assert.ok(!/Heading1[0-9]/.test(xml));
+test("headings stop at the six levels markdown has", () => {
+  const xml = build("###### Six");
+  assert.ok(xml.includes('<w:pStyle w:val="Heading6"/>'));
+  assert.ok(!/Heading[789]/.test(xml));
 });
 
 test("emphasis and inline code become runs, not literal markdown", () => {
@@ -84,9 +85,13 @@ test("fenced code becomes one Codeblock paragraph per line, escaped", () => {
 
 test("markdown inside a code block is not interpreted", () => {
   const xml = build("```\n# not a heading\n**not bold**\n```");
+  // Only the body: the styles part legitimately contains bold, in the heading definitions.
+  const body = xml.slice(xml.indexOf("<w:body>"), xml.indexOf("</w:body>"));
 
-  assert.ok(xml.includes("# not a heading"), "kept verbatim");
-  assert.ok(!xml.includes("<w:b/>"), "no bold run");
+  assert.ok(body.includes("# not a heading"), "kept verbatim");
+  assert.ok(body.includes("**not bold**"), "asterisks kept as written");
+  assert.ok(!body.includes("<w:b/>"), "no bold run");
+  assert.ok(!body.includes('w:val="Heading1"'), "and no heading");
 });
 
 test("the result is a complete package ending in a spare paragraph", () => {

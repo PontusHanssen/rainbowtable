@@ -1,4 +1,3 @@
-import { Section } from "./headings";
 import { Block, Inline, parseMarkdown } from "./markdown";
 import { escapeXml, run, wrapInPackage } from "./ooxml";
 
@@ -13,13 +12,11 @@ const LIST_STYLE = "ListParagraph";
 const BULLET_NUM = 880;
 const NUMBER_NUM = 881;
 
-/** Word has no Heading10, so markdown depth is clamped rather than silently mis-styled. */
-const DEEPEST_HEADING = 9;
+/** Markdown goes to six #s, which is as deep as this needs to style. */
+const DEEPEST_HEADING = 6;
 
 export interface MarkdownInsertion {
   blocks: number;
-  /** The heading level the top-level `#` was written at. */
-  baseLevel: number;
   bookmark: string;
   snapshot: string;
 }
@@ -59,11 +56,11 @@ function listProperties(numId: number): string {
   );
 }
 
-/** Render one markdown block, with headings offset so `#` lands at `baseLevel`. */
-function blockXml(block: Block, baseLevel: number): string {
+/** Render one markdown block. `#` is Heading1, `##` Heading2, and so on. */
+function blockXml(block: Block): string {
   switch (block.kind) {
     case "heading": {
-      const level = Math.min(baseLevel + block.level - 1, DEEPEST_HEADING);
+      const level = Math.min(block.level, DEEPEST_HEADING);
       return paragraph(block.spans, `<w:pStyle w:val="Heading${level}"/>`);
     }
     case "bullet":
@@ -83,7 +80,26 @@ function blockXml(block: Block, baseLevel: number): string {
   }
 }
 
+/**
+ * Word's built-in headings, declared so `w:pStyle` references to them resolve.
+ *
+ * A package must define every style it names — without these the headings arrived as
+ * ordinary body text. `w:name` has to be the built-in name ("heading 2"), which is what
+ * ties these to Word's own heading styles; a document that defines them, as the report
+ * template does, still wins.
+ */
+const HEADING_DEFINITIONS = Array.from(
+  { length: DEEPEST_HEADING },
+  (_unused, index) =>
+    `<w:style w:type="paragraph" w:styleId="Heading${index + 1}">` +
+    `<w:name w:val="heading ${index + 1}"/><w:basedOn w:val="Normal"/>` +
+    `<w:next w:val="Normal"/><w:uiPriority w:val="9"/><w:qFormat/>` +
+    `<w:pPr><w:outlineLvl w:val="${index}"/></w:pPr>` +
+    "<w:rPr><w:b/></w:rPr></w:style>"
+).join("");
+
 const STYLE_DEFINITIONS =
+  HEADING_DEFINITIONS +
   `<w:style w:type="paragraph" w:customStyle="1" w:styleId="${CODE_BLOCK_STYLE}">` +
   '<w:name w:val="Code block"/><w:basedOn w:val="Normal"/>' +
   '<w:pPr><w:shd w:val="clear" w:color="auto" w:fill="D7D2CB"/>' +
@@ -112,30 +128,24 @@ const NUMBERING_DEFINITIONS =
   `<w:num w:numId="${NUMBER_NUM}"><w:abstractNumId w:val="${NUMBER_NUM}"/></w:num>`;
 
 /** The markdown as an OOXML package, ready to insert. Exported for testing. */
-export function buildMarkdown(blocks: Block[], baseLevel: number): string {
-  const body = blocks.map((block) => blockXml(block, baseLevel)).join("");
+export function buildMarkdown(blocks: Block[]): string {
+  const body = blocks.map(blockXml).join("");
 
   // The trailing paragraph keeps the last block from fusing with what follows the cursor.
   return wrapInPackage(`${body}<w:p/>`, STYLE_DEFINITIONS, NUMBERING_DEFINITIONS);
 }
 
 /**
- * Insert markdown at the cursor as a finding.
+ * Insert markdown at the cursor.
  *
- * `#` becomes a finding title under the selected section, `##` its sections, and so on —
- * the same rule the New finding button uses, so the two produce the same shape. With no
- * section selected the template's depth is assumed.
+ * Headings map straight across: `#` is Heading1, `##` is Heading2. Nothing is inferred
+ * from elsewhere in the pane, so what is written is what appears.
  */
-export async function insertMarkdown(
-  source: string,
-  section?: Section
-): Promise<MarkdownInsertion> {
+export async function insertMarkdown(source: string): Promise<MarkdownInsertion> {
   const blocks = parseMarkdown(source);
   if (blocks.length === 0) {
     throw new Error("There is no markdown to insert.");
   }
-
-  const baseLevel = section ? Math.min(section.heading.level + 1, DEEPEST_HEADING) : 2;
 
   return Word.run(async (context) => {
     const captured = context.document.body.getRange("Whole").getOoxml();
@@ -143,13 +153,12 @@ export async function insertMarkdown(
 
     const inserted = context.document
       .getSelection()
-      .insertOoxml(buildMarkdown(blocks, baseLevel), Word.InsertLocation.replace);
+      .insertOoxml(buildMarkdown(blocks), Word.InsertLocation.replace);
     inserted.insertBookmark(MARKDOWN_BOOKMARK);
     await context.sync();
 
     return {
       blocks: blocks.length,
-      baseLevel,
       bookmark: MARKDOWN_BOOKMARK,
       // eslint-disable-next-line office-addins/load-object-before-read
       snapshot: captured.value,

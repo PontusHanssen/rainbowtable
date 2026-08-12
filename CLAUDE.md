@@ -394,8 +394,13 @@ first so a mistyped heading is caught before it reaches the document.
 - The supported subset is **headings, paragraphs, bold, italic, inline code, fenced code
   blocks, bullet and numbered lists, and `<https://…>` autolinks** — deliberately not
   CommonMark. Anything unrecognised stays literal rather than being dropped.
-- `#` lands at the finding's level under the section chosen on the Findings tab, `##` a
-  level below, and so on, so markdown and the New finding button produce the same shape.
+- **Headings map straight across**: `#` is Heading1, `##` is Heading2. Nothing is inferred
+  from the Findings tab — what is written is what appears. The box starts prefilled with a
+  finding skeleton at `##`/`###`, matching the template's depth.
+- **The heading styles have to be defined in the package too.** They were not at first, so
+  every heading arrived as body text: the same discarded-`w:pStyle` rule as `Codeblock`,
+  and easy to miss because the other styles were already there. `w:name` must be Word's
+  own built-in name — `heading 2`, not `Heading2`.
 - `src/word/markdown.ts` is pure text-to-structure and is the best-covered code here; the
   Word-facing half is only the rendering. Keep that split — it is why this feature could be
   tested at all.

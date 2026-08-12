@@ -1,7 +1,6 @@
 import { outline, parseMarkdown } from "../word/markdown";
 import { insertMarkdown, removeMarkdown } from "../word/markdownDoc";
 import { byId, feedbackFor, guard, show } from "./dom";
-import { selectedSection } from "./findingsPanel";
 
 /* global HTMLButtonElement, HTMLTextAreaElement */
 
@@ -26,8 +25,6 @@ export function setUpMarkdownPanel(): void {
     }
 
     const summary = outline(parseMarkdown(source));
-    const section = selectedSection();
-    const base = section ? section.heading.level + 1 : 2;
 
     const counts = [
       `${summary.headings.length} heading${summary.headings.length === 1 ? "" : "s"}`,
@@ -37,18 +34,12 @@ export function setUpMarkdownPanel(): void {
       summary.links > 0 ? `${summary.links} links` : "",
     ].filter(Boolean);
 
-    // The outline, indented as it will appear, with the level Word will actually use.
+    // The outline, indented as it will appear, with the heading style each line becomes.
     const tree = summary.headings
-      .map(
-        (heading) =>
-          `${"  ".repeat(heading.level - 1)}H${base + heading.level - 1}  ${heading.text}`
-      )
+      .map((heading) => `${"  ".repeat(heading.level - 1)}H${heading.level}  ${heading.text}`)
       .join("\n");
 
-    preview.textContent =
-      counts.join(", ") +
-      (section ? `, under "${section.heading.text}".` : ", at the template's depth.") +
-      (tree ? `\n\n${tree}` : "");
+    preview.textContent = `${counts.join(", ")}.` + (tree ? `\n\n${tree}` : "");
   };
 
   input.oninput = () => {
@@ -58,10 +49,8 @@ export function setUpMarkdownPanel(): void {
 
   insert.onclick = () =>
     guard(buttons, feedback, async () => {
-      const result = await insertMarkdown(input.value, selectedSection());
-      feedback.status(
-        `Inserted ${result.blocks} blocks, starting at heading level ${result.baseLevel}.`
-      );
+      const result = await insertMarkdown(input.value);
+      feedback.status(`Inserted ${result.blocks} blocks at the cursor.`);
       inserted = result.bookmark;
       show(undo, true);
     });
