@@ -22,11 +22,6 @@
     "validate": "office-addin-manifest validate manifest.xml",
     "watch": "webpack --mode development --watch"
   },
-  "dependencies": {
-    "core-js": "^3.36.0",
-    "es6-promise": "^4.2.8",
-    "regenerator-runtime": "^0.14.1"
-  },
   "devDependencies": {
     "@babel/core": "^8.0.1",
     "@babel/preset-env": "^8.0.2",

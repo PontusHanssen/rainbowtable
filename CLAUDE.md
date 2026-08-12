@@ -29,8 +29,13 @@ don't build it.
 
 - **TypeScript, no framework.** The task pane is plain DOM: `taskpane.html` holds the
   markup and styles, and one module per panel wires it up. React and Fluent were removed
-  once it was clear three panels of buttons did not need them — the bundle went from
-  378 KB to 69 KB. Do not reintroduce a framework without a reason the DOM cannot meet.
+  once it was clear three panels of buttons did not need them. Do not reintroduce a
+  framework without a reason the DOM cannot meet.
+- **No polyfills.** `babel.config.json` targets `esmodules: true`. Requiring WordApi 1.4
+  already restricts the add-in to Office 2021+/M365, whose webviews are Chromium or
+  WKWebView, so core-js and regenerator were transpiling for browsers that cannot run this
+  add-in anyway. Between dropping the framework and the polyfill the pane went from
+  620 KB of JavaScript to 23 KB. Raising the babel target back to ES5 undoes that.
 - **Office.js**, requirement set **WordApi 1.4** — the floor for the paragraph and OOXML
   APIs, plus `Range.insertBookmark` and `Document.getBookmarkRange`, which the findings
   table needs. This excludes Word 2019 and older; the add-in targets M365, where 1.4 has
