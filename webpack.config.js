@@ -44,6 +44,7 @@ module.exports = async (env, options) => {
     entry: {
       taskpane: ["./src/taskpane/taskpane.ts", "./src/taskpane/taskpane.html"],
       commands: "./src/commands/commands.ts",
+      dialog: ["./src/dialog/dialog.ts", "./src/dialog/dialog.html"],
     },
     output: {
       clean: true,
@@ -112,6 +113,11 @@ module.exports = async (env, options) => {
         filename: "commands.html",
         template: "./src/commands/commands.html",
         chunks: ["commands"],
+      }),
+      new HtmlWebpackPlugin({
+        filename: "dialog.html",
+        template: "./src/dialog/dialog.html",
+        chunks: ["dialog"],
       }),
     ],
     devServer: {

@@ -119,7 +119,6 @@
 
         .status, .warnings, .error { font-size: 12px; }
         .status { color: var(--muted); }
-        #markdown-preview { white-space: pre-wrap; font-size: 11px; }
         .warnings { display: flex; flex-direction: column; gap: 3px; color: var(--warn); }
         .error { color: var(--error); }
 
@@ -241,7 +240,17 @@
     </section>
 
     <section class="panel hidden" id="panel-markdown">
-        <div class="field">
+        <button class="primary" id="markdown-open">Write a finding in markdown…</button>
+        <button class="hidden" id="markdown-undo">Remove what was inserted</button>
+
+        <p class="status">
+            Opens a larger window to write in. Headings become Word headings:
+            <span class="vector">#</span> is Heading&nbsp;1, <span class="vector">##</span>
+            Heading&nbsp;2. It goes in at the cursor, so put the cursor where you want it first.
+        </p>
+
+        <!-- Shown only where Office dialogs are unavailable. -->
+        <div class="field hidden" id="markdown-fallback">
             <label for="markdown-input">Write the finding in markdown</label>
             <textarea id="markdown-input" rows="16">
 ## Title
@@ -254,17 +263,8 @@
 
 ### Recommendation
 </textarea>
+            <button class="primary" id="markdown-insert">Insert at the cursor</button>
         </div>
-
-        <div class="status" id="markdown-preview"></div>
-
-        <button class="primary" id="markdown-insert">Insert at the cursor</button>
-        <button class="hidden" id="markdown-undo">Remove what was inserted</button>
-
-        <p class="status">
-            Headings nest under the section chosen on the Findings tab: <span class="vector">#</span>
-            becomes the finding, <span class="vector">##</span> its sections.
-        </p>
 
         <p class="status" id="markdown-status"></p>
         <div class="warnings" id="markdown-warnings"></div>

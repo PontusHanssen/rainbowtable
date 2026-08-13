@@ -210,6 +210,7 @@ src/word/insertRisk.ts    feature 3 — insertRisk, undoRisk
 src/word/newFinding.ts    insertFinding, removeFinding — the empty finding skeleton
 src/word/markdown.ts      the markdown subset, parsed to blocks and spans (pure)
 src/word/markdownDoc.ts   those blocks rendered to OOXML and inserted
+src/dialog/               the markdown editor, running as an Office dialog
 src/word/http.ts          HTTP message tokenising, pure
 src/word/httpBlock.ts     feature 4 — insertHttpBlock, removeHttpBlock
 src/word/findingsTable.ts feature 2 — previewTable, insertFindingsTable, removeFindingsTable
@@ -394,6 +395,13 @@ first so a mistyped heading is caught before it reaches the document.
 - The supported subset is **headings, paragraphs, bold, italic, inline code, fenced code
   blocks, bullet and numbered lists, and `<https://…>` autolinks** — deliberately not
   CommonMark. Anything unrecognised stays literal rather than being dropped.
+- **The editor is an Office dialog**, opened from the Markdown tab. A dialog runs in its
+  own runtime with **no access to the document**, so it cannot insert anything itself: it
+  sends the markdown back with `Office.context.ui.messageParent`, and the task pane — which
+  does have document access — writes it. The pane must stay open, since it is the parent.
+  The dialog URL has to be on the add-in's own origin, hence `new URL("dialog.html", …)`.
+- Where `DialogApi 1.1` is unsupported, or opening fails, the pane reveals its own editor
+  rather than losing the feature. Both paths call the same `insertMarkdown`.
 - **Headings map straight across**: `#` is Heading1, `##` is Heading2. Nothing is inferred
   from the Findings tab — what is written is what appears. The box starts prefilled with a
   finding skeleton at `##`/`###`, matching the template's depth.

@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Write a finding</title>
+
+    <script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+
+    <style>
+        :root {
+            --ink: #242424;
+            --muted: #616161;
+            --line: #d1d1d1;
+            --accent: #0f6cbd;
+            --surface: #faf9f8;
+            --error: #b10e1c;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            padding: 16px;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            font-family: "Segoe UI", -apple-system, system-ui, sans-serif;
+            font-size: 13px;
+            color: var(--ink);
+        }
+
+        label { font-size: 12px; color: var(--muted); }
+
+        textarea {
+            flex: 1;
+            min-height: 220px;
+            width: 100%;
+            padding: 8px;
+            border: 1px solid var(--line);
+            border-radius: 4px;
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 13px;
+            line-height: 1.45;
+            resize: none;
+        }
+
+        .preview {
+            white-space: pre-wrap;
+            font-size: 11px;
+            color: var(--muted);
+            max-height: 25vh;
+            overflow-y: auto;
+            padding: 8px;
+            background: var(--surface);
+            border-radius: 4px;
+        }
+
+        .actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+        button {
+            padding: 7px 14px;
+            border: 1px solid var(--line);
+            border-radius: 4px;
+            background: #fff;
+            font: inherit;
+            cursor: pointer;
+        }
+
+        button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+        button:disabled { opacity: .5; cursor: default; }
+        .error { color: var(--error); font-size: 12px; }
+    </style>
+</head>
+
+<body>
+    <label for="markdown">Write the finding in markdown — headings become Word headings, <code>#</code> is Heading&nbsp;1</label>
+    <textarea id="markdown" spellcheck="true">
+## Title
+
+### Risk:
+
+### Technical Details
+
+### Proof of Concept
+
+### Recommendation
+</textarea>
+
+    <div class="preview" id="preview"></div>
+    <p class="error" id="error"></p>
+
+    <div class="actions">
+        <button id="cancel">Cancel</button>
+        <button class="primary" id="insert">Insert at the cursor</button>
+    </div>
+</body>
+
+</html>

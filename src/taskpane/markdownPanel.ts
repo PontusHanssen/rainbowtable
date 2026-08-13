@@ -1,59 +1,71 @@
-import { outline, parseMarkdown } from "../word/markdown";
 import { insertMarkdown, removeMarkdown } from "../word/markdownDoc";
 import { byId, feedbackFor, guard, show } from "./dom";
 
-/* global HTMLButtonElement, HTMLTextAreaElement */
+/* global Office, URL, HTMLButtonElement, HTMLTextAreaElement, location */
 
+/**
+ * The markdown editor lives in an Office dialog, which has room for it. The dialog has no
+ * document access of its own, so it sends the markdown back here and this writes it.
+ *
+ * Where dialogs are unavailable the pane falls back to its own editor rather than losing
+ * the feature.
+ */
 export function setUpMarkdownPanel(): void {
-  const input = byId<HTMLTextAreaElement>("markdown-input");
-  const preview = byId("markdown-preview");
-  const insert = byId<HTMLButtonElement>("markdown-insert");
+  const open = byId<HTMLButtonElement>("markdown-open");
   const undo = byId<HTMLButtonElement>("markdown-undo");
+  const fallback = byId("markdown-fallback");
+  const input = byId<HTMLTextAreaElement>("markdown-input");
+  const insert = byId<HTMLButtonElement>("markdown-insert");
 
   const feedback = feedbackFor("markdown");
-  const buttons = [insert, undo];
+  const buttons = [open, undo, insert];
   let inserted: string | undefined;
 
-  /** Show what will be written before anything is written. */
-  const describe = () => {
-    const source = input.value;
-    insert.disabled = source.trim() === "";
-
-    if (!source.trim()) {
-      preview.textContent = "";
-      return;
-    }
-
-    const summary = outline(parseMarkdown(source));
-
-    const counts = [
-      `${summary.headings.length} heading${summary.headings.length === 1 ? "" : "s"}`,
-      `${summary.paragraphs} paragraph${summary.paragraphs === 1 ? "" : "s"}`,
-      summary.listItems > 0 ? `${summary.listItems} list items` : "",
-      summary.codeBlocks > 0 ? `${summary.codeBlocks} code blocks` : "",
-      summary.links > 0 ? `${summary.links} links` : "",
-    ].filter(Boolean);
-
-    // The outline, indented as it will appear, with the heading style each line becomes.
-    const tree = summary.headings
-      .map((heading) => `${"  ".repeat(heading.level - 1)}H${heading.level}  ${heading.text}`)
-      .join("\n");
-
-    preview.textContent = `${counts.join(", ")}.` + (tree ? `\n\n${tree}` : "");
-  };
-
-  input.oninput = () => {
-    feedback.status("");
-    describe();
-  };
-
-  insert.onclick = () =>
+  const write = (source: string) =>
     guard(buttons, feedback, async () => {
-      const result = await insertMarkdown(input.value);
+      const result = await insertMarkdown(source);
       feedback.status(`Inserted ${result.blocks} blocks at the cursor.`);
       inserted = result.bookmark;
       show(undo, true);
     });
+
+  /** Show the in-pane editor when the dialog cannot be used. */
+  const useFallback = (why: string) => {
+    show(fallback, true);
+    show(open, false);
+    feedback.status(`${why} Write the finding here instead.`);
+  };
+
+  open.onclick = () => {
+    if (!Office.context.requirements.isSetSupported("DialogApi", "1.1")) {
+      useFallback("This Word build cannot open add-in dialogs.");
+      return;
+    }
+
+    // Same origin as the task pane, which is what a dialog is restricted to.
+    const url = new URL("dialog.html", location.href).href;
+
+    Office.context.ui.displayDialogAsync(url, { height: 70, width: 55 }, (opened) => {
+      if (opened.status !== Office.AsyncResultStatus.Succeeded) {
+        useFallback(`The dialog could not be opened (${opened.error.message}).`);
+        return;
+      }
+
+      const dialog = opened.value;
+      dialog.addEventHandler(Office.EventType.DialogMessageReceived, (arg) => {
+        const source = (arg as { message?: string }).message ?? "";
+        dialog.close();
+
+        if (source.trim() === "") {
+          feedback.status("Cancelled — nothing was inserted.");
+          return;
+        }
+        write(source);
+      });
+    });
+  };
+
+  insert.onclick = () => write(input.value);
 
   undo.onclick = () =>
     guard(buttons, feedback, async () => {
@@ -65,6 +77,4 @@ export function setUpMarkdownPanel(): void {
       show(undo, false);
       feedback.status("Removed the inserted content.");
     });
-
-  describe();
 }
