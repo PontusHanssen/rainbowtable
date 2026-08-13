@@ -524,4 +524,11 @@ finished finding fails to insert would risk the writing, so:
 - A **heartbeat** pings every 5 s, so a lost pane is noticed while the editor is idle
   rather than at the moment someone tries to insert.
 - The dialog shows a loud banner, disables Insert, and offers to copy the markdown out.
-  Any reply arriving marks the channel live again, so recovery needs no restart.
+- **A closed pane cannot be reconnected to.** `messageParent` targets the pane instance
+  that opened the dialog, and a reopened pane never registered a handler for it, so the
+  dialog is orphaned for good — reconnection only appears to work when the pane was merely
+  slow. The banner says so rather than suggesting a recovery that cannot happen.
+- Which is why **the draft is saved continuously to `localStorage`** (`draft.ts`) and
+  restored when the editor next opens. Closing the orphaned window and reopening the editor
+  is the recovery path, and it costs nothing. Storage that is unavailable or full is
+  tolerated: losing the backup must not stop someone writing.
