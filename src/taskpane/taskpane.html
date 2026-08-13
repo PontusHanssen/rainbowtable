@@ -198,7 +198,7 @@
     <nav class="tabs" role="tablist">
         <button class="tab" role="tab" data-panel="findings" aria-selected="true">Findings</button>
         <button class="tab" role="tab" data-panel="cvss" aria-selected="false">CVSS</button>
-        <button class="tab" role="tab" data-panel="http" aria-selected="false">HTTP</button>
+        <button class="tab" role="tab" data-panel="code" aria-selected="false">Code</button>
     </nav>
 
     <section class="panel" id="panel-findings">
@@ -252,41 +252,38 @@
         <p class="error" id="cvss-error"></p>
     </section>
 
-    <section class="panel hidden" id="panel-http">
+    <section class="panel hidden" id="panel-code">
         <div class="field">
-            <label for="http-input">Paste the request or response from Burp</label>
-            <textarea id="http-input" rows="12"
-                placeholder="GET /admin HTTP/1.1&#10;Host: app.example.com"></textarea>
+            <label for="code-input">Paste code, or a request or response from Burp</label>
+            <textarea id="code-input" rows="12"
+                placeholder="SELECT * FROM users WHERE id = 1"></textarea>
         </div>
 
-        <p class="status" id="http-detected"></p>
+        <div class="field">
+            <label>
+                <input type="checkbox" id="code-highlight" checked> Syntax highlighting
+            </label>
+            <label for="code-language">Language</label>
+            <select id="code-language">
+                <option value="auto">Detect automatically</option>
+            </select>
+        </div>
 
-        <button class="primary" id="http-insert">Insert at the cursor</button>
-        <button class="hidden" id="http-undo">Remove the inserted block</button>
+        <p class="status" id="code-detected"></p>
+
+        <button class="primary" id="code-insert">Insert at the cursor</button>
+        <button class="hidden" id="code-undo">Remove the inserted block</button>
 
         <p class="status">
-            Pasting here rather than into Word keeps the message exactly as Burp gave it —
+            Pasting here rather than into Word keeps the text exactly as captured —
             autocorrect and smart quotes would otherwise alter your evidence.
         </p>
 
-        <p class="status" id="http-status"></p>
-        <div class="warnings" id="http-warnings"></div>
-        <p class="error" id="http-error"></p>
+        <p class="status" id="code-status"></p>
+        <div class="warnings" id="code-warnings"></div>
+        <p class="error" id="code-error"></p>
     </section>
 
-    <!-- Development only; hidden unless served from localhost. -->
-    <div class="confirm hidden" id="limits">
-        <span class="status">
-                Measures how large an insertion Word actually accepts. Writes test content
-                into the document and removes it again.
-        </span>
-        <button id="limits-run">Measure the insert limit</button>
-        <pre class="status" id="limits-output" style="white-space:pre-wrap;margin:0"></pre>
-        <button id="limits-diagnose">Diagnose the fixed cost</button>
-        <pre class="status" id="limits-diagnose-output" style="white-space:pre-wrap;margin:0"></pre>
-        <button id="limits-shapes">Compare insert shapes</button>
-        <pre class="status" id="limits-shape-output" style="white-space:pre-wrap;margin:0"></pre>
-    </div>
 
 </body>
 

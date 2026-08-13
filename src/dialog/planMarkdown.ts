@@ -2,8 +2,8 @@ import { CodeHighlighter, ParagraphPlan, planFromBlocks, planFromHttp } from "..
 import { highlightHttp } from "../word/http";
 import { colourOf } from "../word/httpColours";
 import { parseMarkdown } from "../word/markdown";
-import { canonicalLanguage } from "./codeColours";
-import { grammarFor, highlightWith } from "./highlightCode";
+import { canonicalLanguage } from "../shared/codeColours";
+import { grammarFor, highlightWith } from "../shared/highlightCode";
 
 /**
  * Turn markdown into a plan, colouring fenced code on the way.
@@ -28,8 +28,16 @@ function httpLines(block: { lines: string[]; language?: string }) {
   return planFromHttp(message, colourOf).map((plan) => plan.runs);
 }
 
-export async function planMarkdown(markdown: string): Promise<ParagraphPlan[]> {
+export async function planMarkdown(
+  markdown: string,
+  options: { highlight: boolean } = { highlight: true }
+): Promise<ParagraphPlan[]> {
   const blocks = parseMarkdown(markdown);
+
+  // Highlighting off means plain fences, and no grammar is loaded at all.
+  if (!options.highlight) {
+    return planFromBlocks(blocks);
+  }
 
   // Load every grammar the document names before planning, since planning is synchronous.
   const languages = new Set(

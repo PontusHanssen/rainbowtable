@@ -122,11 +122,12 @@ module.exports = async (env, options) => {
         chunks: ["dialog"],
       }),
     ],
-    // The dialog carries CodeMirror and React on purpose and is loaded only when opened.
-    // The task pane is the one to keep small, so it keeps the default budget.
+    // Only the task pane has a size budget worth enforcing: it loads with the document.
+    // The dialog opens on demand, and the grammar chunks arrive only when code is
+    // highlighted, so both are deliberately outside it.
     performance: {
       hints: dev ? false : "warning",
-      assetFilter: (asset) => !asset.startsWith("dialog"),
+      assetFilter: (asset) => /^(taskpane|commands)\.js$/.test(asset),
     },
     devServer: {
       hot: true,

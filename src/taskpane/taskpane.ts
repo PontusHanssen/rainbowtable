@@ -1,14 +1,13 @@
 import { setUpFindingsPanel } from "./findingsPanel";
 import { setUpCvssPanel } from "./cvssPanel";
-import { setUpHttpPanel } from "./httpPanel";
+import { setUpCodePanel } from "./codePanel";
 import { setUpMarkdownPanel } from "./markdownPanel";
-import { setUpLimitsPanel } from "./limitsPanel";
 import { byId, show } from "./dom";
 
 /* global document, Office, HTMLButtonElement, NodeListOf, location */
 
 /** The finishing tools. Authoring lives in the dialog, launched from the header. */
-const PANELS = ["findings", "cvss", "http"];
+const PANELS = ["findings", "cvss", "code"];
 
 function setUpTabs(): void {
   const tabs = document.querySelectorAll(".tab") as NodeListOf<HTMLButtonElement>;
@@ -47,7 +46,6 @@ Office.onReady(() => {
   setUpTabs();
   setUpFindingsPanel();
   setUpCvssPanel();
-  setUpHttpPanel();
+  setUpCodePanel();
   setUpMarkdownPanel();
-  setUpLimitsPanel();
 });

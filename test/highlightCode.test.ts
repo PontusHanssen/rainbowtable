@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { CODE_COLOURS, canonicalLanguage, colourFor } from "../src/dialog/codeColours";
+import { CODE_COLOURS, canonicalLanguage, colourFor } from "../src/shared/codeColours";
 
 test("the aliases people actually type resolve to a grammar", () => {
   assert.equal(canonicalLanguage("js"), "javascript");
@@ -36,7 +36,7 @@ test("keywords carry weight, so the block still reads in greyscale", () => {
 test("highlighting never alters the code, only colours it", async () => {
   // The same invariant the HTTP block has: what is written is evidence.
   const { StandardSQL } = await import("@codemirror/lang-sql");
-  const { highlightWith } = await import("../src/dialog/highlightCode");
+  const { highlightWith } = await import("../src/shared/highlightCode");
 
   const sql = "SELECT id, name\nFROM users\nWHERE name = 'admin' -- injected\n";
   const rebuilt = highlightWith(StandardSQL.language, sql)
@@ -48,8 +48,8 @@ test("highlighting never alters the code, only colours it", async () => {
 
 test("a grammar colours what it recognises", async () => {
   const { StandardSQL } = await import("@codemirror/lang-sql");
-  const { highlightWith } = await import("../src/dialog/highlightCode");
-  const { CODE_COLOURS: colours } = await import("../src/dialog/codeColours");
+  const { highlightWith } = await import("../src/shared/highlightCode");
+  const { CODE_COLOURS: colours } = await import("../src/shared/codeColours");
 
   const runs = highlightWith(StandardSQL.language, "SELECT * FROM users WHERE id = 1").flat();
   const find = (text: string) => runs.find((run) => run.text.trim() === text);
@@ -64,7 +64,7 @@ test("a grammar colours what it recognises", async () => {
 
 test("a span crossing a newline is cut at the line, since lines are paragraphs", async () => {
   const { StandardSQL } = await import("@codemirror/lang-sql");
-  const { highlightWith } = await import("../src/dialog/highlightCode");
+  const { highlightWith } = await import("../src/shared/highlightCode");
 
   const lines = highlightWith(StandardSQL.language, "SELECT 'a\nmultiline'\nFROM t");
 
@@ -93,8 +93,8 @@ test("the languages reports actually quote all resolve", () => {
 
 test("every alias points at a grammar that can actually be loaded", async () => {
   // An alias with no loader silently degrades to plain, which looks like a bug.
-  const { LANGUAGE_ALIASES } = await import("../src/dialog/codeColours");
-  const { loadableLanguages } = await import("../src/dialog/highlightCode");
+  const { LANGUAGE_ALIASES } = await import("../src/shared/codeColours");
+  const { loadableLanguages } = await import("../src/shared/highlightCode");
 
   const targets = new Set(Object.values(LANGUAGE_ALIASES));
   const missing = [...targets].filter((language) => !loadableLanguages().includes(language));

@@ -37,6 +37,7 @@ export function App(): ReactElement {
   const pane = usePane();
   const [markdown, setMarkdown] = useState(SKELETON);
   const [preview, setPreview] = useState(false);
+  const [highlight, setHighlight] = useState(true);
   const [written, setWritten] = useState<Written[]>([]);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
@@ -46,7 +47,7 @@ export function App(): ReactElement {
     setBusy(true);
     setError("");
     try {
-      const result = await pane.insert(await planMarkdown(markdown));
+      const result = await pane.insert(await planMarkdown(markdown, { highlight }));
       setWritten((all) => [
         ...all,
         { bookmark: result.bookmark, title: titleOf(markdown), paragraphs: result.paragraphs },
@@ -102,6 +103,14 @@ export function App(): ReactElement {
       />
 
       <nav className="tabs">
+        <label className="toggle" title="Colour ```language fences in the document">
+          <input
+            type="checkbox"
+            checked={highlight}
+            onChange={(event) => setHighlight(event.target.checked)}
+          />
+          Syntax highlighting
+        </label>
         <span className="spacer" />
         <button
           type="button"

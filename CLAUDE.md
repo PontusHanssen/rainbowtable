@@ -225,8 +225,10 @@ src/word/markdown.ts      the markdown subset, parsed to blocks and spans (pure)
 src/word/markdownDoc.ts   those blocks rendered to OOXML and inserted
 src/shared/protocol.ts    the typed messages between dialog and pane
 src/dialog/               the React authoring app: editor, CVSS, preview, session list
-src/dialog/highlightCode.ts  lezer grammars colouring fenced code, loaded on demand
-src/word/httpColours.ts   the HTTP token palette, pure so the dialog can share it
+src/shared/highlightCode.ts   lezer grammars, loaded on demand by either side
+src/word/httpColours.ts   the HTTP token palette, pure so both sides can share it
+src/shared/detectLanguage.ts  guessing what a pasted snippet is
+src/shared/planCode.ts    a snippet planned as paragraphs, coloured or plain
 src/word/documentPlan.ts  markdown or HTTP turned into paragraphs and runs, as data
 src/word/writePlan.ts     carrying a plan out through the Office.js API
 src/word/http.ts          HTTP message tokenising, pure
@@ -438,7 +440,8 @@ first so a mistyped heading is caught before it reaches the document.
 
 ## insertOoxml is slow — build content through the API instead
 
-Measured in Word on the web, in both a large report and an empty document:
+Measured in Word on the web, in both a large report and an empty document. The harness that
+produced these has been removed; the numbers are the part worth keeping:
 
 | | |
 |---|---|
@@ -552,3 +555,21 @@ finished finding fails to insert would risk the writing, so:
   into the document it came from. Do not reintroduce an unscoped key.
 - Until then the recovery is manual and explicit: the banner says nothing is stored and
   offers **Copy the markdown** before the window is closed.
+
+## Pasting code
+
+The pane's Code tab takes any snippet, not just HTTP.
+
+- **The language is detected**, and detection is deliberately conservative: a wrong guess
+  colours code as something it is not, which is worse than leaving it plain, so anything
+  unrecognised stays plain. `detectLanguage` is pure and tested against the languages a
+  report actually quotes. A test also asserts every language it can detect has a grammar to
+  colour it — detecting something nothing can highlight promises colour and delivers none.
+- HTTP is tried first and is not part of detection: `highlightHttp` recognises requests and
+  responses by shape, which no general grammar does.
+- **Highlighting is a checkbox**, in both the pane and the dialog. Off means plain code and
+  no grammar is loaded at all.
+- The highlighter lives in `src/shared/` and is reached through a dynamic `import()` from
+  both sides, which is what keeps the task pane at ~37 KB while the grammars stay
+  available. Only `taskpane.js` has a size budget in `webpack.config.js`; the dialog and
+  the grammar chunks load on demand and are deliberately outside it.
