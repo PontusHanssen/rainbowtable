@@ -92,6 +92,12 @@
     <div class="preview" id="preview"></div>
     <p class="error" id="error"></p>
 
+    <!-- Development only. -->
+    <div id="probe" hidden style="border-top:1px solid var(--line);padding-top:8px">
+        <button id="probe-run">Measure the message limit</button>
+        <pre class="preview" id="probe-output" style="margin:8px 0 0"></pre>
+    </div>
+
     <div class="actions">
         <button id="cancel">Cancel</button>
         <button class="primary" id="insert">Insert at the cursor</button>

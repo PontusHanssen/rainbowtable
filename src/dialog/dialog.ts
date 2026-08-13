@@ -1,6 +1,7 @@
 import { outline, parseMarkdown } from "../word/markdown";
+import { Measurement, formatMeasurements, sizeLadder, syntheticMessage } from "../word/limits";
 
-/* global document, Office, HTMLElement, HTMLButtonElement, HTMLTextAreaElement */
+/* global document, Office, location, setTimeout, clearTimeout, HTMLElement, HTMLButtonElement, HTMLTextAreaElement */
 
 /**
  * The markdown editor, running in an Office dialog.
@@ -45,6 +46,72 @@ Office.onReady(() => {
   insert.onclick = () => Office.context.ui.messageParent(input.value);
   cancel.onclick = () => Office.context.ui.messageParent("");
 
+  setUpMessageProbe();
+
   describe();
   input.focus();
 });
+
+/**
+ * Development-only: measure how large a message `messageParent` will actually carry.
+ *
+ * Office documents no limit for it, and it is the channel every finding crosses on its way
+ * to the document. The pane echoes back the length it received, so a payload that is
+ * truncated or dropped shows up as a mismatch rather than as silence.
+ */
+function setUpMessageProbe(): void {
+  if (location.hostname !== "localhost") {
+    return;
+  }
+
+  const probe = document.getElementById("probe") as HTMLElement;
+  const run = document.getElementById("probe-run") as HTMLButtonElement;
+  const output = document.getElementById("probe-output") as HTMLElement;
+  probe.hidden = false;
+
+  let awaiting: ((got: number) => void) | undefined;
+
+  Office.context.ui.addHandlerAsync(Office.EventType.DialogParentMessageReceived, (arg) => {
+    const reply = JSON.parse((arg as { message: string }).message) as { got: number };
+    awaiting?.(reply.got);
+    awaiting = undefined;
+  });
+
+  run.onclick = async () => {
+    run.disabled = true;
+    const results: Measurement[] = [];
+
+    for (const bytes of sizeLadder(16 * 1024, 8 * 1024 * 1024)) {
+      const payload = syntheticMessage(bytes);
+      const started = Date.now();
+
+      // No reply within ten seconds counts as a failure: a message too large to carry
+      // tends to vanish rather than raise anything.
+      const got = await new Promise<number>((resolve) => {
+        const timer = setTimeout(() => resolve(-1), 10000);
+        awaiting = (value) => {
+          clearTimeout(timer);
+          resolve(value);
+        };
+        Office.context.ui.messageParent(JSON.stringify({ kind: "probe", bytes, payload }));
+      });
+
+      const ms = Date.now() - started;
+      if (got === payload.length) {
+        results.push({ bytes, ok: true, ms });
+      } else {
+        results.push({
+          bytes,
+          ok: false,
+          ms,
+          detail: got < 0 ? "no reply within 10s" : `arrived as ${got} bytes`,
+        });
+        output.textContent = formatMeasurements("messageParent", results);
+        break;
+      }
+      output.textContent = formatMeasurements("messageParent", results);
+    }
+
+    run.disabled = false;
+  };
+}

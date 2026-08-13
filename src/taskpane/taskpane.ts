@@ -2,6 +2,7 @@ import { setUpFindingsPanel } from "./findingsPanel";
 import { setUpCvssPanel } from "./cvssPanel";
 import { setUpHttpPanel } from "./httpPanel";
 import { setUpMarkdownPanel } from "./markdownPanel";
+import { setUpLimitsPanel } from "./limitsPanel";
 import { byId, show } from "./dom";
 
 /* global document, Office, HTMLButtonElement, NodeListOf, location */
@@ -47,4 +48,5 @@ Office.onReady(() => {
   setUpCvssPanel();
   setUpHttpPanel();
   setUpMarkdownPanel();
+  setUpLimitsPanel();
 });

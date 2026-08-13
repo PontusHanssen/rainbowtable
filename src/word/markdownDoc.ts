@@ -17,8 +17,8 @@ const DEEPEST_HEADING = 6;
 
 export interface MarkdownInsertion {
   blocks: number;
+  /** Bookmark wrapping what was written, which is how it is removed again. */
   bookmark: string;
-  snapshot: string;
 }
 
 const MARKDOWN_BOOKMARK = "_ptmd";
@@ -148,21 +148,13 @@ export async function insertMarkdown(source: string): Promise<MarkdownInsertion>
   }
 
   return Word.run(async (context) => {
-    const captured = context.document.body.getRange("Whole").getOoxml();
-    await context.sync();
-
     const inserted = context.document
       .getSelection()
       .insertOoxml(buildMarkdown(blocks), Word.InsertLocation.replace);
     inserted.insertBookmark(MARKDOWN_BOOKMARK);
     await context.sync();
 
-    return {
-      blocks: blocks.length,
-      bookmark: MARKDOWN_BOOKMARK,
-      // eslint-disable-next-line office-addins/load-object-before-read
-      snapshot: captured.value,
-    };
+    return { blocks: blocks.length, bookmark: MARKDOWN_BOOKMARK };
   });
 }
 

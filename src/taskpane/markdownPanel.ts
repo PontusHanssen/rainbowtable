@@ -54,6 +54,18 @@ export function setUpMarkdownPanel(): void {
       const dialog = opened.value;
       dialog.addEventHandler(Office.EventType.DialogMessageReceived, (arg) => {
         const source = (arg as { message?: string }).message ?? "";
+
+        // Development-only probe: the dialog sends a payload of a known size and this
+        // reports back what actually arrived, which is how the message channel's
+        // undocumented limit gets measured. Real markdown is never JSON.
+        if (source.startsWith('{"kind":"probe"')) {
+          const probe = JSON.parse(source) as { bytes: number; payload: string };
+          dialog.messageChild(
+            JSON.stringify({ kind: "probeResult", bytes: probe.bytes, got: probe.payload.length })
+          );
+          return;
+        }
+
         dialog.close();
 
         if (source.trim() === "") {
