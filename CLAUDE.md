@@ -528,7 +528,14 @@ finished finding fails to insert would risk the writing, so:
   that opened the dialog, and a reopened pane never registered a handler for it, so the
   dialog is orphaned for good — reconnection only appears to work when the pane was merely
   slow. The banner says so rather than suggesting a recovery that cannot happen.
-- Which is why **the draft is saved continuously to `localStorage`** (`draft.ts`) and
-  restored when the editor next opens. Closing the orphaned window and reopening the editor
-  is the recovery path, and it costs nothing. Storage that is unavailable or full is
-  tolerated: losing the backup must not stop someone writing.
+- **Nothing is persisted, deliberately.** Saving the draft to `localStorage` was built and
+  then removed: the key is per-origin, not per-document, so a finding written for one
+  client's report would be offered up — and could be inserted — while a different client's
+  report was open. Cross-client leakage is a worse failure than retyping a finding. Browser
+  storage would also leave findings on disk beyond the session.
+- If persistence is ever wanted back, it has to be **scoped to the document**: the pane
+  would send a document identity (a *hash* of `Office.context.document.url`, never the URL,
+  which contains the client name) when the dialog opens, and a draft would only be restored
+  into the document it came from. Do not reintroduce an unscoped key.
+- Until then the recovery is manual and explicit: the banner says nothing is stored and
+  offers **Copy the markdown** before the window is closed.
