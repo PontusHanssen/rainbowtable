@@ -474,6 +474,9 @@ Writing findings happens in a long-lived dialog; the pane keeps the finalising c
   are **counted, not random**: four random base-36 characters collide about once in a few
   hundred, and a collision means a reply applied to the wrong request.
 - Size is not a concern on this channel: 8 MB crossed it in 41 ms when measured.
+- **Scoring sits above the editor, not behind a tab.** It is consulted while writing, so a
+  tab made it a detour. Metrics show their specification letters with the full name on
+  hover, which is what keeps all eight on one or two rows.
 - **CVSS needs no Word code.** `cvss.ts` is pure, so it runs in the dialog; applying a score
   rewrites the `Risk:` line and the vector *in the markdown*, and the existing pipeline
   turns those into a heading `severity.ts` can read and a clickable link. `applyScore` is

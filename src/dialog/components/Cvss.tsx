@@ -20,10 +20,14 @@ const SEVERITY_COLOURS: Record<Severity, string> = {
 };
 
 /**
- * Scoring, which needs no document access at all: `cvss.ts` is pure, so it runs here
- * unchanged. Applying a score rewrites the finding's `Risk:` line and the vector beneath
- * it *in the markdown*, which the existing pipeline already turns into a real heading and
- * a clickable link — so this feature adds no Word code.
+ * Scoring, as a bar above the editor rather than a tab beside it: it is consulted while
+ * writing, so hiding it behind a tab makes it a detour. Metrics are shown by their
+ * specification letters with the full name on hover, which is what keeps eight of them on
+ * one or two rows.
+ *
+ * It needs no document access — `cvss.ts` is pure. Applying a score rewrites the `Risk:`
+ * line and the vector in the markdown, which the existing pipeline turns into a heading
+ * `severity.ts` can read and a clickable link.
  */
 export function Cvss({
   onApply,
@@ -36,43 +40,42 @@ export function Cvss({
   const severity = severityFor(score);
 
   return (
-    <div className="cvss">
-      <div className="score">
-        <span className="score-number">{score.toFixed(1)}</span>
-        <span className="score-severity" style={{ color: SEVERITY_COLOURS[severity] }}>
-          {severity}
-        </span>
-      </div>
-
-      {METRICS.map((metric) => (
-        <div className="metric" key={metric.id}>
-          <span className="label">{metric.name}</span>
-          <div className="choices">
+    <div className="cvss-bar">
+      <div className="metrics">
+        {METRICS.map((metric) => (
+          <div className="metric" key={metric.id} title={metric.name}>
+            <span className="metric-id">{metric.id}</span>
             {metric.options.map(([code, name]) => (
               <button
                 key={code}
                 type="button"
                 className="choice"
                 aria-pressed={vector[metric.id] === code}
-                title={`${metric.id}:${code} — ${name}`}
+                title={`${metric.name}: ${name}`}
                 onClick={() => setVector((current) => ({ ...current, [metric.id]: code }))}
               >
-                {name}
+                {code}
               </button>
             ))}
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
 
-      <div className="vector">{formatVector(vector)}</div>
-
-      <button
-        type="button"
-        className="primary"
-        onClick={() => onApply(`${severity} (${score.toFixed(1)})`, `<${calculatorUrl(vector)}>`)}
-      >
-        Put this score in the finding
-      </button>
+      <div className="score-row">
+        <span className="score-number" style={{ color: SEVERITY_COLOURS[severity] }}>
+          {score.toFixed(1)}
+        </span>
+        <span className="score-severity" style={{ color: SEVERITY_COLOURS[severity] }}>
+          {severity}
+        </span>
+        <span className="vector">{formatVector(vector)}</span>
+        <button
+          type="button"
+          onClick={() => onApply(`${severity} (${score.toFixed(1)})`, `<${calculatorUrl(vector)}>`)}
+        >
+          Put in finding
+        </button>
+      </div>
     </div>
   );
 }

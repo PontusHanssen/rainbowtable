@@ -33,7 +33,6 @@ function titleOf(markdown: string): string {
 export function App(): ReactElement {
   const pane = usePane();
   const [markdown, setMarkdown] = useState(SKELETON);
-  const [tab, setTab] = useState<"write" | "score">("write");
   const [preview, setPreview] = useState(false);
   const [written, setWritten] = useState<Written[]>([]);
   const [busy, setBusy] = useState(false);
@@ -57,7 +56,6 @@ export function App(): ReactElement {
       );
       // Ready for the next one: the editor stays open across a whole report.
       setMarkdown(SKELETON);
-      setTab("write");
     } catch (err) {
       setError(String(err));
     } finally {
@@ -81,23 +79,14 @@ export function App(): ReactElement {
 
   return (
     <div className="app">
+      <Cvss
+        onApply={(risk, vector) => {
+          setMarkdown((current) => applyScore(current, risk, vector));
+          setStatus(`Scored ${risk}.`);
+        }}
+      />
+
       <nav className="tabs">
-        <button
-          type="button"
-          className="tab"
-          aria-selected={tab === "write"}
-          onClick={() => setTab("write")}
-        >
-          Write
-        </button>
-        <button
-          type="button"
-          className="tab"
-          aria-selected={tab === "score"}
-          onClick={() => setTab("score")}
-        >
-          CVSS
-        </button>
         <span className="spacer" />
         <button
           type="button"
@@ -110,17 +99,7 @@ export function App(): ReactElement {
       </nav>
 
       <div className={preview ? "split" : "single"}>
-        {tab === "write" ? (
-          <Editor value={markdown} onChange={setMarkdown} />
-        ) : (
-          <Cvss
-            onApply={(risk, vector) => {
-              setMarkdown((current) => applyScore(current, risk, vector));
-              setTab("write");
-              setStatus(`Scored ${risk}.`);
-            }}
-          />
-        )}
+        <Editor value={markdown} onChange={setMarkdown} />
         {preview && <Preview markdown={markdown} />}
       </div>
 
