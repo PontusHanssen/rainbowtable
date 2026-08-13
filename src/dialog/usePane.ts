@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { ParagraphPlan } from "../word/documentPlan";
 import { ToDialog, ToPane, decode, encode, nextRequestId } from "../shared/protocol";
 
 /**
@@ -17,7 +18,9 @@ type WithoutId<T> = T extends { requestId: string } ? Omit<T, "requestId"> : nev
  * findings, which is why replies carry the id of the request that asked for them.
  */
 export interface PaneChannel {
-  insert(markdown: string): Promise<{ bookmark: string; paragraphs: number; plainStyles: boolean }>;
+  insert(
+    plans: ParagraphPlan[]
+  ): Promise<{ bookmark: string; paragraphs: number; plainStyles: boolean }>;
   remove(bookmark: string): Promise<void>;
   close(): void;
   /** False until Office is ready; the editor is usable before then, insertion is not. */
@@ -60,8 +63,8 @@ export function usePane(): PaneChannel {
 
   return {
     ready,
-    async insert(markdown) {
-      const reply = await send({ kind: "insert", markdown });
+    async insert(plans) {
+      const reply = await send({ kind: "insert", plans });
       if (reply.kind !== "inserted") {
         throw new Error("Unexpected reply to an insert.");
       }

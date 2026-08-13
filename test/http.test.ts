@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { Token, detectBody, highlightHttp } from "../src/word/http";
-import { colourOf } from "../src/word/httpBlock";
+import { colourOf } from "../src/word/httpColours";
 import { planFromHttp } from "../src/word/documentPlan";
 
 const REQUEST = [

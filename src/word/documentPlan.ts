@@ -29,6 +29,16 @@ export type ParagraphPlan =
   | { kind: "code"; runs: RunPlan[] }
   | { kind: "listItem"; ordered: boolean; group: number; runs: RunPlan[] };
 
+/**
+ * Colour a fenced block, returning one array of runs per line, or undefined to leave it
+ * plain. Supplied by the dialog, which owns the grammars; the pane has none and does not
+ * need any.
+ */
+export type CodeHighlighter = (block: {
+  lines: string[];
+  language?: string;
+}) => RunPlan[][] | undefined;
+
 /** Markdown goes to six #s, and Word has nine heading levels. */
 const DEEPEST_HEADING = 6;
 
@@ -56,7 +66,7 @@ function runsFrom(spans: Inline[]): RunPlan[] {
  * attaching its paragraphs to one list object: without the grouping, every item would
  * start again at 1.
  */
-export function planFromBlocks(blocks: Block[]): ParagraphPlan[] {
+export function planFromBlocks(blocks: Block[], highlight?: CodeHighlighter): ParagraphPlan[] {
   const plans: ParagraphPlan[] = [];
   let group = 0;
   let previous: "bullet" | "number" | undefined;
@@ -86,11 +96,15 @@ export function planFromBlocks(blocks: Block[]): ParagraphPlan[] {
           runs: runsFrom(block.spans),
         });
         break;
-      case "code":
+      case "code": {
         // One paragraph per line: the code style's contextual spacing and matching
         // borders are what join them into a single box.
-        block.lines.forEach((line) => plans.push({ kind: "code", runs: [{ text: line }] }));
+        const coloured = highlight?.(block);
+        block.lines.forEach((line, index) =>
+          plans.push({ kind: "code", runs: coloured?.[index] ?? [{ text: line }] })
+        );
         break;
+      }
       default:
         plans.push({ kind: "body", runs: runsFrom(block.spans) });
     }

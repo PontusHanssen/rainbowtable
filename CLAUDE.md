@@ -212,6 +212,8 @@ src/word/markdown.ts      the markdown subset, parsed to blocks and spans (pure)
 src/word/markdownDoc.ts   those blocks rendered to OOXML and inserted
 src/shared/protocol.ts    the typed messages between dialog and pane
 src/dialog/               the React authoring app: editor, CVSS, preview, session list
+src/dialog/highlightCode.ts  lezer grammars colouring fenced code, loaded on demand
+src/word/httpColours.ts   the HTTP token palette, pure so the dialog can share it
 src/word/documentPlan.ts  markdown or HTTP turned into paragraphs and runs, as data
 src/word/writePlan.ts     carrying a plan out through the Office.js API
 src/word/http.ts          HTTP message tokenising, pure
@@ -484,3 +486,26 @@ Writing findings happens in a long-lived dialog; the pane keeps the finalising c
 - The dialog bundle carries React and CodeMirror and is about 690 KB, loaded only when
   opened. The task pane stays around 37 KB and keeps webpack's size budget; the dialog is
   excluded from it deliberately, in `webpack.config.js`.
+
+## Fenced code highlighting
+
+` ```sql `, ` ```js ` and the rest are coloured in the document, by the same lezer grammars
+CodeMirror uses in the editor — one grammar, so the editor, the preview and the document
+cannot drift apart.
+
+- **The dialog does the planning, not the pane.** Grammars are hundreds of KB and the pane
+  is kept at ~37 KB, so the dialog parses, highlights and sends a finished
+  `ParagraphPlan[]` over the channel; the pane only writes it. This is why the protocol
+  carries plans rather than markdown.
+- Grammars load with a dynamic `import()` on first use, so opening the dialog costs the
+  editor only. `output.publicPath: "auto"` is what lets those chunks resolve under the
+  Pages sub-path.
+- ` ```http `, or a fence with no language that parses as a request or response, goes
+  through `highlightHttp` instead: it understands start lines and headers in a way no
+  general grammar does.
+- An unknown language stays plain rather than being guessed at. `canonicalLanguage` maps
+  the aliases people type (`js`, `bash`, `yml`, `psql`).
+- Colours live in `codeColours.ts`, chosen for the template's Codeblock shading rather than
+  white, with keywords bold so a block still reads in greyscale. The highlighter is tested
+  in node — grammars are ordinary packages — including that colouring never alters the
+  code, only decorates it.

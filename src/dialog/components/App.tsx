@@ -4,6 +4,7 @@ import { Cvss } from "./Cvss";
 import { Preview } from "./Preview";
 import { applyScore } from "../applyScore";
 import { usePane } from "../usePane";
+import { planMarkdown } from "../planMarkdown";
 
 const SKELETON = [
   "## Title",
@@ -43,7 +44,7 @@ export function App(): ReactElement {
     setBusy(true);
     setError("");
     try {
-      const result = await pane.insert(markdown);
+      const result = await pane.insert(await planMarkdown(markdown));
       setWritten((all) => [
         ...all,
         { bookmark: result.bookmark, title: titleOf(markdown), paragraphs: result.paragraphs },

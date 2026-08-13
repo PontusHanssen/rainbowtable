@@ -1,5 +1,6 @@
 import { ToDialog, ToPane, decode, encode } from "../shared/protocol";
 import { insertMarkdown, removeMarkdown } from "../word/markdownDoc";
+import { removeWritten, writePlan } from "../word/writePlan";
 import { byId, feedbackFor, guard, show } from "./dom";
 
 /* global Office, URL, HTMLButtonElement, HTMLTextAreaElement, location */
@@ -47,7 +48,8 @@ export function setUpMarkdownPanel(): void {
 
     try {
       if (request.kind === "insert") {
-        const result = await insertMarkdown(request.markdown);
+        // Already planned and coloured by the dialog; the pane only writes.
+        const result = await writePlan(request.plans, "_ptmd");
         lastBookmark = result.bookmark;
         show(undo, true);
         feedback.status(describe(result.paragraphs, result.plainStyles));
@@ -59,7 +61,7 @@ export function setUpMarkdownPanel(): void {
           plainStyles: result.plainStyles,
         });
       } else if (request.kind === "remove") {
-        await removeMarkdown(request.bookmark);
+        await removeWritten(request.bookmark);
         feedback.status("Removed.");
         reply({ kind: "removed", requestId: request.requestId });
       } else {

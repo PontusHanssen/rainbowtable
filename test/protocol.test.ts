@@ -1,9 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { ToDialog, ToPane, decode, encode, nextRequestId } from "../src/shared/protocol";
+import { planFromBlocks } from "../src/word/documentPlan";
+import { parseMarkdown } from "../src/word/markdown";
 
 test("a message survives the round trip unchanged", () => {
-  const sent: ToPane = { kind: "insert", requestId: "r1", markdown: "# Title\n\n- item" };
+  const plans = planFromBlocks(parseMarkdown("# Title\n\n- item"));
+  const sent: ToPane = { kind: "insert", requestId: "r1", plans };
   assert.deepEqual(decode<ToPane>(encode(sent)), sent);
 
   const reply: ToDialog = {
@@ -16,12 +19,14 @@ test("a message survives the round trip unchanged", () => {
   assert.deepEqual(decode<ToDialog>(encode(reply)), reply);
 });
 
-test("markdown with quotes and newlines crosses intact", () => {
+test("a plan with quotes, colours and links crosses intact", () => {
   // The channel is a string, so anything that breaks JSON breaks the feature.
-  const markdown = '## "Quoted"\n\n```\n{"a": 1}\n```\n\n- <https://x.test>';
-  const decoded = decode<ToPane>(encode({ kind: "insert", requestId: "r2", markdown }));
+  const plans = planFromBlocks(
+    parseMarkdown('## "Quoted"\n\n```\n{"a": 1}\n```\n\n- <https://x.test>')
+  );
+  const decoded = decode<ToPane>(encode({ kind: "insert", requestId: "r2", plans }));
 
-  assert.equal(decoded?.kind === "insert" && decoded.markdown, markdown);
+  assert.deepEqual(decoded?.kind === "insert" && decoded.plans, plans);
 });
 
 test("anything that is not one of our messages is refused, not guessed at", () => {

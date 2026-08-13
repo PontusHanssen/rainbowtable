@@ -1,3 +1,5 @@
+import { ParagraphPlan } from "../word/documentPlan";
+
 /**
  * The messages between the dialog and the task pane.
  *
@@ -11,7 +13,8 @@
  */
 
 export type ToPane =
-  | { kind: "insert"; requestId: string; markdown: string }
+  /** Already planned: the dialog owns the parser and the grammars, the pane just writes. */
+  | { kind: "insert"; requestId: string; plans: ParagraphPlan[] }
   | { kind: "remove"; requestId: string; bookmark: string }
   | { kind: "close"; requestId: string };
 
