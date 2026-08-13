@@ -54,6 +54,14 @@
             font-weight: 600;
         }
 
+        .launcher {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding: 14px;
+            border-bottom: 1px solid var(--line);
+        }
+
         .panel {
             display: flex;
             flex-direction: column;
@@ -160,11 +168,37 @@
 </head>
 
 <body>
+    <!-- Authoring is one action; everything below it is for finishing a report. -->
+    <header class="launcher">
+        <button class="primary" id="markdown-open">Write a finding…</button>
+        <button class="hidden" id="markdown-undo">Remove what was inserted</button>
+
+        <!-- Shown only where Office dialogs are unavailable. -->
+        <div class="field hidden" id="markdown-fallback">
+            <label for="markdown-input">Write the finding in markdown</label>
+            <textarea id="markdown-input" rows="14">
+## Title
+
+### Risk:
+
+### Technical Details
+
+### Proof of Concept
+
+### Recommendation
+</textarea>
+            <button class="primary" id="markdown-insert">Insert at the cursor</button>
+        </div>
+
+        <p class="status" id="markdown-status"></p>
+        <div class="warnings" id="markdown-warnings"></div>
+        <p class="error" id="markdown-error"></p>
+    </header>
+
     <nav class="tabs" role="tablist">
         <button class="tab" role="tab" data-panel="findings" aria-selected="true">Findings</button>
         <button class="tab" role="tab" data-panel="cvss" aria-selected="false">CVSS</button>
         <button class="tab" role="tab" data-panel="http" aria-selected="false">HTTP</button>
-        <button class="tab" role="tab" data-panel="markdown" aria-selected="false">Markdown</button>
     </nav>
 
     <section class="panel" id="panel-findings">
@@ -208,8 +242,9 @@
         <button class="hidden" id="cvss-undo">Undo the last risk</button>
 
         <p class="status">
-            Put the cursor on the finding's "Risk:" line. The vector goes on the line below,
-            linked to the NVD calculator.
+            For scoring a finding already in the document: put the cursor on its "Risk:" line.
+            The vector goes on the line below, linked to the NVD calculator. Findings written
+            in the editor are scored there instead.
         </p>
 
         <p class="status" id="cvss-status"></p>
@@ -239,51 +274,20 @@
         <p class="error" id="http-error"></p>
     </section>
 
-    <section class="panel hidden" id="panel-markdown">
-        <button class="primary" id="markdown-open">Write a finding in markdown…</button>
-        <button class="hidden" id="markdown-undo">Remove what was inserted</button>
-
-        <p class="status">
-            Opens a larger window to write in. Headings become Word headings:
-            <span class="vector">#</span> is Heading&nbsp;1, <span class="vector">##</span>
-            Heading&nbsp;2. It goes in at the cursor, so put the cursor where you want it first.
-        </p>
-
-        <!-- Shown only where Office dialogs are unavailable. -->
-        <div class="field hidden" id="markdown-fallback">
-            <label for="markdown-input">Write the finding in markdown</label>
-            <textarea id="markdown-input" rows="16">
-## Title
-
-### Risk:
-
-### Technical Details
-
-### Proof of Concept
-
-### Recommendation
-</textarea>
-            <button class="primary" id="markdown-insert">Insert at the cursor</button>
-        </div>
-
-        <!-- Development only; hidden unless served from localhost. -->
-        <div class="confirm hidden" id="limits">
-            <span class="status">
+    <!-- Development only; hidden unless served from localhost. -->
+    <div class="confirm hidden" id="limits">
+        <span class="status">
                 Measures how large an insertion Word actually accepts. Writes test content
                 into the document and removes it again.
-            </span>
-            <button id="limits-run">Measure the insert limit</button>
-            <pre class="status" id="limits-output" style="white-space:pre-wrap;margin:0"></pre>
-            <button id="limits-diagnose">Diagnose the fixed cost</button>
-            <pre class="status" id="limits-diagnose-output" style="white-space:pre-wrap;margin:0"></pre>
-            <button id="limits-shapes">Compare insert shapes</button>
-            <pre class="status" id="limits-shape-output" style="white-space:pre-wrap;margin:0"></pre>
-        </div>
+        </span>
+        <button id="limits-run">Measure the insert limit</button>
+        <pre class="status" id="limits-output" style="white-space:pre-wrap;margin:0"></pre>
+        <button id="limits-diagnose">Diagnose the fixed cost</button>
+        <pre class="status" id="limits-diagnose-output" style="white-space:pre-wrap;margin:0"></pre>
+        <button id="limits-shapes">Compare insert shapes</button>
+        <pre class="status" id="limits-shape-output" style="white-space:pre-wrap;margin:0"></pre>
+    </div>
 
-        <p class="status" id="markdown-status"></p>
-        <div class="warnings" id="markdown-warnings"></div>
-        <p class="error" id="markdown-error"></p>
-    </section>
 </body>
 
 </html>

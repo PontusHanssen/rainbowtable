@@ -190,6 +190,19 @@ surviving PDF export as internal links**. That rules out plain text and rules ou
   rescan, or the pane closing. That is deliberate — it is an undo, not a version history.
 - Do not leave the document half-modified if a step throws.
 
+## Two halves
+
+**Authoring** — writing a finding, scoring it, pasting evidence — happens in the dialog,
+which is launched from the button at the top of the pane and stays open across a report.
+
+**Finishing** — sorting findings by severity, inserting the rainbow table, scoring a
+finding that is already in the document, pasting evidence into one — stays in the task
+pane, in tabs beneath the launcher. These act on the finished document, need no editor, and
+are used once or twice per report.
+
+The pane's CVSS tab is deliberately *not* a duplicate of the dialog's: the dialog scores
+the finding being written, the pane scores one already in the document at the cursor.
+
 ## Layout
 
 ```

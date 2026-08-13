@@ -7,7 +7,8 @@ import { byId, show } from "./dom";
 
 /* global document, Office, HTMLButtonElement, NodeListOf, location */
 
-const PANELS = ["findings", "cvss", "http", "markdown"];
+/** The finishing tools. Authoring lives in the dialog, launched from the header. */
+const PANELS = ["findings", "cvss", "http"];
 
 function setUpTabs(): void {
   const tabs = document.querySelectorAll(".tab") as NodeListOf<HTMLButtonElement>;
