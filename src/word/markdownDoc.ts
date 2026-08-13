@@ -1,161 +1,190 @@
-import { Block, Inline, parseMarkdown } from "./markdown";
-import { escapeXml, run, wrapInPackage } from "./ooxml";
+import { ParagraphPlan, RunPlan, listGroups, planFromBlocks } from "./documentPlan";
+import { parseMarkdown } from "./markdown";
 
 /* global Word */
 
-/** The template's styles. Shipped as fallbacks too, since a package must define what it names. */
-const CODE_BLOCK_STYLE = "Codeblock";
-const INLINE_CODE_STYLE = "Codeinline20";
-const LIST_STYLE = "ListParagraph";
+/**
+ * Write markdown into the document through the Office.js API.
+ *
+ * Not through `insertOoxml`, which costs about six seconds per call whatever it carries —
+ * see the measurements in CLAUDE.md. Everything here happens inside one `Word.run`, and a
+ * round trip is tens of milliseconds.
+ */
 
-/** High ids, to stay clear of the numbering the destination document already uses. */
-const BULLET_NUM = 880;
-const NUMBER_NUM = 881;
+/** The report template's styles. A document without them is handled by the retry below. */
+const CODE_STYLE = "Code block";
+const INLINE_CODE_STYLE = "Code inline 2.0";
 
-/** Markdown goes to six #s, which is as deep as this needs to style. */
-const DEEPEST_HEADING = 6;
+const MARKDOWN_BOOKMARK = "_ptmd";
+
+/** Heading style names, indexed by level, so no cast is needed to assign one. */
+const HEADING_STYLES = [
+  "Heading1",
+  "Heading2",
+  "Heading3",
+  "Heading4",
+  "Heading5",
+  "Heading6",
+] as const;
 
 export interface MarkdownInsertion {
   blocks: number;
   /** Bookmark wrapping what was written, which is how it is removed again. */
   bookmark: string;
+  /** True when the template's styles were unavailable and plain ones were used. */
+  plainStyles: boolean;
 }
 
-const MARKDOWN_BOOKMARK = "_ptmd";
-
-function inlineRun(span: Inline): string {
-  switch (span.kind) {
-    case "bold":
-      return run(span.text, "<w:b/>");
-    case "italic":
-      return run(span.text, "<w:i/>");
-    case "code":
-      return run(span.text, `<w:rStyle w:val="${INLINE_CODE_STYLE}"/>`);
-    case "link":
-      // A HYPERLINK field needs no relationship part, unlike a w:hyperlink element.
-      return (
-        `<w:fldSimple w:instr=" HYPERLINK &quot;${escapeXml(span.url)}&quot; ">` +
-        run(span.text, '<w:rStyle w:val="Hyperlink"/>') +
-        "</w:fldSimple>"
-      );
-    default:
-      return run(span.text);
-  }
-}
-
-function paragraph(spans: Inline[], properties = ""): string {
-  const pPr = properties ? `<w:pPr>${properties}</w:pPr>` : "";
-  return `<w:p>${pPr}${spans.map(inlineRun).join("")}</w:p>`;
-}
-
-function listProperties(numId: number): string {
-  return (
-    `<w:pStyle w:val="${LIST_STYLE}"/>` +
-    `<w:numPr><w:ilvl w:val="0"/><w:numId w:val="${numId}"/></w:numPr>` +
-    "<w:contextualSpacing/>"
-  );
-}
-
-/** Render one markdown block. `#` is Heading1, `##` Heading2, and so on. */
-function blockXml(block: Block): string {
-  switch (block.kind) {
-    case "heading": {
-      const level = Math.min(block.level, DEEPEST_HEADING);
-      return paragraph(block.spans, `<w:pStyle w:val="Heading${level}"/>`);
+/** Write one paragraph's runs, styling each as it goes. */
+function writeRuns(paragraph: Word.Paragraph, runs: RunPlan[], templateStyles: boolean): void {
+  runs.forEach((run) => {
+    if (run.text === "") {
+      return;
     }
-    case "bullet":
-      return paragraph(block.spans, listProperties(BULLET_NUM));
-    case "number":
-      return paragraph(block.spans, listProperties(NUMBER_NUM));
-    case "code":
-      // One paragraph per line, as in the HTTP block: the style's contextual spacing and
-      // matching borders are what merge them into a single box.
-      return block.lines
-        .map((line) =>
-          paragraph([{ kind: "text", text: line }], `<w:pStyle w:val="${CODE_BLOCK_STYLE}"/>`)
-        )
-        .join("");
-    default:
-      return paragraph(block.spans);
+    const range = paragraph.insertText(run.text, Word.InsertLocation.end);
+
+    if (run.bold) {
+      range.font.bold = true;
+    }
+    if (run.italic) {
+      range.font.italic = true;
+    }
+    if (run.code) {
+      if (templateStyles) {
+        range.style = INLINE_CODE_STYLE;
+      } else {
+        range.font.name = "Courier New";
+      }
+    }
+    if (run.link) {
+      range.hyperlink = run.link;
+    }
+  });
+}
+
+/** Create the paragraphs, in order, each chained after the last. */
+function writeParagraphs(
+  after: Word.Paragraph,
+  plans: ParagraphPlan[],
+  templateStyles: boolean
+): Word.Paragraph[] {
+  const written: Word.Paragraph[] = [];
+  let previous = after;
+
+  for (const plan of plans) {
+    const paragraph = previous.insertParagraph("", Word.InsertLocation.after);
+
+    switch (plan.kind) {
+      case "heading":
+        paragraph.styleBuiltIn = HEADING_STYLES[plan.level - 1];
+        writeRuns(paragraph, plan.runs, templateStyles);
+        break;
+
+      case "code":
+        if (templateStyles) {
+          paragraph.style = CODE_STYLE;
+        } else {
+          paragraph.styleBuiltIn = "Normal";
+          paragraph.font.name = "Courier New";
+        }
+        // One unformatted run: the style carries the monospace and the shading.
+        writeRuns(paragraph, [{ text: plan.text }], templateStyles);
+        break;
+
+      case "listItem":
+        paragraph.styleBuiltIn = "ListParagraph";
+        writeRuns(paragraph, plan.runs, templateStyles);
+        break;
+
+      default:
+        paragraph.styleBuiltIn = "Normal";
+        writeRuns(paragraph, plan.runs, templateStyles);
+    }
+
+    written.push(paragraph);
+    previous = paragraph;
   }
+
+  return written;
 }
 
 /**
- * Word's built-in headings, declared so `w:pStyle` references to them resolve.
+ * Turn each run of list items into a real Word list.
  *
- * A package must define every style it names — without these the headings arrived as
- * ordinary body text. `w:name` has to be the built-in name ("heading 2"), which is what
- * ties these to Word's own heading styles; a document that defines them, as the report
- * template does, still wins.
+ * The first item starts a list and the rest attach to it by id, which needs its own round
+ * trip: the id does not exist until Word has made the list. Grouping matters — without it
+ * every item would begin again at 1.
  */
-const HEADING_DEFINITIONS = Array.from(
-  { length: DEEPEST_HEADING },
-  (_unused, index) =>
-    `<w:style w:type="paragraph" w:styleId="Heading${index + 1}">` +
-    `<w:name w:val="heading ${index + 1}"/><w:basedOn w:val="Normal"/>` +
-    `<w:next w:val="Normal"/><w:uiPriority w:val="9"/><w:qFormat/>` +
-    `<w:pPr><w:outlineLvl w:val="${index}"/></w:pPr>` +
-    "<w:rPr><w:b/></w:rPr></w:style>"
-).join("");
+async function attachLists(
+  context: Word.RequestContext,
+  plans: ParagraphPlan[],
+  written: Word.Paragraph[]
+): Promise<void> {
+  const groups = listGroups(plans);
+  if (groups.size === 0) {
+    return;
+  }
 
-const STYLE_DEFINITIONS =
-  HEADING_DEFINITIONS +
-  `<w:style w:type="paragraph" w:customStyle="1" w:styleId="${CODE_BLOCK_STYLE}">` +
-  '<w:name w:val="Code block"/><w:basedOn w:val="Normal"/>' +
-  '<w:pPr><w:shd w:val="clear" w:color="auto" w:fill="D7D2CB"/>' +
-  '<w:spacing w:before="0" w:after="0" w:line="240" w:lineRule="auto"/><w:contextualSpacing/></w:pPr>' +
-  '<w:rPr><w:rFonts w:ascii="Courier New" w:hAnsi="Courier New"/><w:sz w:val="20"/></w:rPr></w:style>' +
-  `<w:style w:type="character" w:customStyle="1" w:styleId="${INLINE_CODE_STYLE}">` +
-  '<w:name w:val="Code inline 2.0"/>' +
-  '<w:rPr><w:rFonts w:ascii="Courier New" w:hAnsi="Courier New"/><w:sz w:val="18"/>' +
-  '<w:shd w:val="clear" w:color="auto" w:fill="EDEAE7"/></w:rPr></w:style>' +
-  `<w:style w:type="paragraph" w:styleId="${LIST_STYLE}">` +
-  '<w:name w:val="List Paragraph"/><w:basedOn w:val="Normal"/>' +
-  '<w:pPr><w:ind w:left="720"/><w:contextualSpacing/></w:pPr></w:style>' +
-  '<w:style w:type="character" w:styleId="Hyperlink"><w:name w:val="Hyperlink"/>' +
-  '<w:rPr><w:color w:val="0563C1"/><w:u w:val="single"/></w:rPr></w:style>';
+  const lists = new Map<number, { list: Word.List; members: number[]; ordered: boolean }>();
+  groups.forEach((members, group) => {
+    const plan = plans[members[0]] as Extract<ParagraphPlan, { kind: "listItem" }>;
+    const list = written[members[0]].startNewList();
+    list.load("id");
+    lists.set(group, { list, members, ordered: plan.ordered });
+  });
+  await context.sync();
 
-/** Bullets use Symbol's F0B7, the character Word itself uses for a round bullet. */
-const NUMBERING_DEFINITIONS =
-  `<w:abstractNum w:abstractNumId="${BULLET_NUM}"><w:multiLevelType w:val="hybridMultilevel"/>` +
-  '<w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="&#xF0B7;"/>' +
-  '<w:lvlJc w:val="left"/><w:pPr><w:ind w:left="720" w:hanging="360"/></w:pPr>' +
-  '<w:rPr><w:rFonts w:ascii="Symbol" w:hAnsi="Symbol" w:hint="default"/></w:rPr></w:lvl></w:abstractNum>' +
-  `<w:abstractNum w:abstractNumId="${NUMBER_NUM}"><w:multiLevelType w:val="hybridMultilevel"/>` +
-  '<w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%1."/>' +
-  '<w:lvlJc w:val="left"/><w:pPr><w:ind w:left="720" w:hanging="360"/></w:pPr></w:lvl></w:abstractNum>' +
-  `<w:num w:numId="${BULLET_NUM}"><w:abstractNumId w:val="${BULLET_NUM}"/></w:num>` +
-  `<w:num w:numId="${NUMBER_NUM}"><w:abstractNumId w:val="${NUMBER_NUM}"/></w:num>`;
+  lists.forEach(({ list, members, ordered }) => {
+    // Numbering and bullets are set by different calls; there is no bullet numbering.
+    if (ordered) {
+      list.setLevelNumbering(0, Word.ListNumbering.arabic);
+    } else {
+      list.setLevelBullet(0, Word.ListBullet.solid);
+    }
+    members.slice(1).forEach((index) => written[index].attachToList(list.id, 0));
+  });
+  await context.sync();
+}
 
-/** The markdown as an OOXML package, ready to insert. Exported for testing. */
-export function buildMarkdown(blocks: Block[]): string {
-  const body = blocks.map(blockXml).join("");
+async function write(source: string, templateStyles: boolean): Promise<MarkdownInsertion> {
+  const plans = planFromBlocks(parseMarkdown(source));
 
-  // The trailing paragraph keeps the last block from fusing with what follows the cursor.
-  return wrapInPackage(`${body}<w:p/>`, STYLE_DEFINITIONS, NUMBERING_DEFINITIONS);
+  return Word.run(async (context) => {
+    const cursor = context.document.getSelection().paragraphs.getFirst();
+    const written = writeParagraphs(cursor, plans, templateStyles);
+
+    written[0]
+      .getRange("Whole")
+      .expandTo(written[written.length - 1].getRange("Whole"))
+      .insertBookmark(MARKDOWN_BOOKMARK);
+    await context.sync();
+
+    await attachLists(context, plans, written);
+
+    return { blocks: plans.length, bookmark: MARKDOWN_BOOKMARK, plainStyles: !templateStyles };
+  });
 }
 
 /**
- * Insert markdown at the cursor.
+ * Insert markdown at the cursor. `#` is Heading1, `##` is Heading2.
  *
- * Headings map straight across: `#` is Heading1, `##` is Heading2. Nothing is inferred
- * from elsewhere in the pane, so what is written is what appears.
+ * A document without the report template's styles rejects them by name, and the failure
+ * lands on `sync` once the whole batch is queued. Rather than checking each style up
+ * front, this writes once and, if that fails, writes again with built-in styles and direct
+ * formatting; the caller is told which happened.
  */
 export async function insertMarkdown(source: string): Promise<MarkdownInsertion> {
-  const blocks = parseMarkdown(source);
-  if (blocks.length === 0) {
+  if (planFromBlocks(parseMarkdown(source)).length === 0) {
     throw new Error("There is no markdown to insert.");
   }
 
-  return Word.run(async (context) => {
-    const inserted = context.document
-      .getSelection()
-      .insertOoxml(buildMarkdown(blocks), Word.InsertLocation.replace);
-    inserted.insertBookmark(MARKDOWN_BOOKMARK);
-    await context.sync();
-
-    return { blocks: blocks.length, bookmark: MARKDOWN_BOOKMARK };
-  });
+  try {
+    return await write(source, true);
+  } catch {
+    // Clear anything the failed attempt left behind before trying again.
+    await removeMarkdown(MARKDOWN_BOOKMARK).catch(() => undefined);
+    return write(source, false);
+  }
 }
 
 /** Remove what `insertMarkdown` wrote. */

@@ -13,6 +13,7 @@
     "dev-server": "webpack serve --mode development",
     "lint": "office-addin-lint check",
     "lint:fix": "office-addin-lint fix",
+    "pretest": "node -e \"require('fs').rmSync('dist-test',{recursive:true,force:true})\"",
     "prettier": "office-addin-lint prettier",
     "signin": "office-addin-dev-settings m365-account login",
     "signout": "office-addin-dev-settings m365-account logout",

@@ -24,7 +24,12 @@ export function setUpMarkdownPanel(): void {
   const write = (source: string) =>
     guard(buttons, feedback, async () => {
       const result = await insertMarkdown(source);
-      feedback.status(`Inserted ${result.blocks} blocks at the cursor.`);
+      feedback.status(
+        `Inserted ${result.blocks} paragraphs at the cursor.` +
+          (result.plainStyles
+            ? " This document has no template styles, so plain ones were used."
+            : "")
+      );
       inserted = result.bookmark;
       show(undo, true);
     });
