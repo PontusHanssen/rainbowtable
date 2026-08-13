@@ -16,7 +16,9 @@ export type ToPane =
   /** Already planned: the dialog owns the parser and the grammars, the pane just writes. */
   | { kind: "insert"; requestId: string; plans: ParagraphPlan[] }
   | { kind: "remove"; requestId: string; bookmark: string }
-  | { kind: "close"; requestId: string };
+  | { kind: "close"; requestId: string }
+  /** Heartbeat: the dialog cannot otherwise tell that the pane has gone. */
+  | { kind: "ping"; requestId: string };
 
 export type ToDialog =
   | {
@@ -27,7 +29,8 @@ export type ToDialog =
       plainStyles: boolean;
     }
   | { kind: "removed"; requestId: string }
-  | { kind: "failed"; requestId: string; reason: string };
+  | { kind: "failed"; requestId: string; reason: string }
+  | { kind: "pong"; requestId: string };
 
 let counter = 0;
 

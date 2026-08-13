@@ -47,7 +47,9 @@ export function setUpMarkdownPanel(): void {
     const reply = (message: ToDialog) => dialog.messageChild(encode(message));
 
     try {
-      if (request.kind === "insert") {
+      if (request.kind === "ping") {
+        reply({ kind: "pong", requestId: request.requestId });
+      } else if (request.kind === "insert") {
         // Already planned and coloured by the dialog; the pane only writes.
         const result = await writePlan(request.plans, "_ptmd");
         lastBookmark = result.bookmark;

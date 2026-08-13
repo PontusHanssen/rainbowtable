@@ -123,6 +123,14 @@
         .entry { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
         .muted { color: var(--muted); }
 
+        /* Loud on purpose: writing into a dialog that cannot insert loses work. */
+        .disconnected {
+            display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+            padding: 10px 12px; border-radius: 4px;
+            background: #fdeaea; border: 1px solid var(--error); color: #6b1016;
+            font-size: 12px;
+        }
+
         .status { color: var(--muted); font-size: 12px; margin: 0; }
         .error { color: var(--error); font-size: 12px; margin: 0; }
         .actions { display: flex; justify-content: flex-end; gap: 8px; }

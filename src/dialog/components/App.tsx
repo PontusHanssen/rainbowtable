@@ -4,6 +4,8 @@ import { Cvss } from "./Cvss";
 import { Preview } from "./Preview";
 import { applyScore } from "../applyScore";
 import { usePane } from "../usePane";
+
+/* global navigator */
 import { planMarkdown } from "../planMarkdown";
 
 const SKELETON = [
@@ -80,6 +82,17 @@ export function App(): ReactElement {
 
   return (
     <div className="app">
+      {!pane.connected && (
+        <div className="disconnected" role="alert">
+          <strong>The task pane is not answering.</strong> Nothing can be inserted until it is back
+          — reopen Rainbowtable in Word, or reload the document. Your text is safe in this window;
+          copy it out first if you would rather not risk it.
+          <button type="button" onClick={() => navigator.clipboard?.writeText(markdown)}>
+            Copy the markdown
+          </button>
+        </div>
+      )}
+
       <Cvss
         onApply={(risk, vector) => {
           setMarkdown((current) => applyScore(current, risk, vector));
@@ -127,7 +140,13 @@ export function App(): ReactElement {
         <button type="button" onClick={() => pane.close()}>
           Close
         </button>
-        <button type="button" className="primary" disabled={busy || !pane.ready} onClick={insert}>
+        <button
+          type="button"
+          className="primary"
+          disabled={busy || !pane.ready || !pane.connected}
+          title={pane.connected ? undefined : "The task pane is not answering"}
+          onClick={insert}
+        >
           Insert at the cursor
         </button>
       </div>

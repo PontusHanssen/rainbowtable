@@ -51,12 +51,24 @@ const loaders: Record<string, () => Promise<Language>> = {
   php: async () => (await import("@codemirror/lang-php")).phpLanguage,
   python: async () => (await import("@codemirror/lang-python")).pythonLanguage,
   yaml: async () => (await import("@codemirror/lang-yaml")).yamlLanguage,
-  // Shell has no lezer grammar of its own; the legacy stream mode is what CodeMirror uses.
+  java: async () => (await import("@codemirror/lang-java")).javaLanguage,
+  go: async () => (await import("@codemirror/lang-go")).goLanguage,
+  // These have no lezer grammar of their own; the legacy stream modes are what CodeMirror
+  // falls back to for them, and they share one chunk.
   shell: async () =>
     StreamLanguage.define((await import("@codemirror/legacy-modes/mode/shell")).shell),
+  csharp: async () =>
+    StreamLanguage.define((await import("@codemirror/legacy-modes/mode/clike")).csharp),
+  c: async () => StreamLanguage.define((await import("@codemirror/legacy-modes/mode/clike")).c),
+  cpp: async () => StreamLanguage.define((await import("@codemirror/legacy-modes/mode/clike")).cpp),
 };
 
 const loaded = new Map<string, Language>();
+
+/** The languages a grammar exists for. Exported so the aliases can be checked against it. */
+export function loadableLanguages(): string[] {
+  return Object.keys(loaders);
+}
 
 /** Load a grammar once, or undefined for a language we do not carry. */
 export async function grammarFor(fence: string | undefined): Promise<Language | undefined> {

@@ -71,3 +71,33 @@ test("a span crossing a newline is cut at the line, since lines are paragraphs",
   assert.equal(lines.length, 3, "one array of runs per line");
   assert.ok(lines.every((line) => line.every((run) => !run.text.includes("\n"))));
 });
+
+test("the languages reports actually quote all resolve", () => {
+  const expected: Record<string, string> = {
+    java: "java",
+    go: "go",
+    golang: "go",
+    cs: "csharp",
+    "C#": "csharp",
+    csharp: "csharp",
+    python: "python",
+    py: "python",
+    c: "c",
+    "c++": "cpp",
+  };
+
+  for (const [fence, language] of Object.entries(expected)) {
+    assert.equal(canonicalLanguage(fence), language, `${fence} should map to ${language}`);
+  }
+});
+
+test("every alias points at a grammar that can actually be loaded", async () => {
+  // An alias with no loader silently degrades to plain, which looks like a bug.
+  const { LANGUAGE_ALIASES } = await import("../src/dialog/codeColours");
+  const { loadableLanguages } = await import("../src/dialog/highlightCode");
+
+  const targets = new Set(Object.values(LANGUAGE_ALIASES));
+  const missing = [...targets].filter((language) => !loadableLanguages().includes(language));
+
+  assert.deepEqual(missing, [], "aliases without a loader");
+});

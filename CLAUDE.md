@@ -505,7 +505,23 @@ cannot drift apart.
   general grammar does.
 - An unknown language stays plain rather than being guessed at. `canonicalLanguage` maps
   the aliases people type (`js`, `bash`, `yml`, `psql`).
+- Languages: javascript/typescript, html, css, json, xml, sql, php, python, yaml, java, go,
+  shell, C#, C and C++. The last four have no lezer grammar and use CodeMirror's legacy
+  stream modes. A test asserts **every alias resolves to a loader that exists** — an alias
+  without one degrades silently to plain, which reads as a bug.
 - Colours live in `codeColours.ts`, chosen for the template's Codeblock shading rather than
   white, with keywords bold so a block still reads in greyscale. The highlighter is tested
   in node — grammars are ordinary packages — including that colouring never alters the
   code, only decorates it.
+
+## Losing the pane
+
+The pane can go — closed, reloaded by Word, navigated away from — and nothing announces
+it: `messageParent` goes nowhere and no reply ever arrives. Discovering that only when a
+finished finding fails to insert would risk the writing, so:
+
+- Every request **times out** (15 s, 4 s for the heartbeat) rather than hanging forever.
+- A **heartbeat** pings every 5 s, so a lost pane is noticed while the editor is idle
+  rather than at the moment someone tries to insert.
+- The dialog shows a loud banner, disables Insert, and offers to copy the markdown out.
+  Any reply arriving marks the channel live again, so recovery needs no restart.
