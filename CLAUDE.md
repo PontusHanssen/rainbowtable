@@ -417,3 +417,36 @@ first so a mistyped heading is caught before it reaches the document.
   `wrapInPackage(body, styles, numbering)` ships both.
 - Links are `HYPERLINK` fields rather than `w:hyperlink` elements, because a field needs no
   relationship part — the same reason the findings table uses `REF` fields.
+
+## insertOoxml is slow — build content through the API instead
+
+Measured in Word on the web, in both a large report and an empty document:
+
+| | |
+|---|---|
+| Empty round trip (`Word.run` + `sync`, no edit) | 5–77 ms |
+| **One trivial paragraph via `insertOoxml`** | **5.7–6.6 s** |
+| **584 paragraphs via `insertParagraph`** | **1.0–1.1 s** |
+| 4 KB of markdown via OOXML | 6.8 s |
+| 64 KB of markdown via OOXML | 10.8 s |
+
+`insertOoxml` costs about **six seconds per call whatever it carries** — the same for one
+paragraph as for 64 KB, in an empty document as in a 300-page report. The API path inserts
+584 paragraphs faster than OOXML inserts one.
+
+Consequences, and they run against the grain of the earlier code:
+
+- **Build new content with `insertParagraph`, `insertText`, `styleBuiltIn`, `Paragraph.style`,
+  `Range.font` and `Range.hyperlink`** — all in one `Word.run`, which is a single round
+  trip and therefore cheap. `newFinding.ts` already worked this way; that was luck, not
+  foresight.
+- **Chunking a large insert makes it worse**, not better: the cost is per call, so splitting
+  one insert into five multiplies six seconds by five. This is why the harness measured
+  before anything was built on the assumption.
+- **OOXML is still required for what the API cannot express**: `REF` fields in the findings
+  table, and moving existing content in `sortFindings`, where a single Replace is the only
+  thing that preserves the finding's own XML. Those are one-off operations where six
+  seconds is tolerable — but do not reach for OOXML by habit.
+- Style resolution and paragraph count barely matter: collapsing 584 paragraphs into one
+  saved 10%, dropping styles entirely 14%. Do not optimise the shape of a package; avoid
+  the call.

@@ -11,6 +11,7 @@ import { insertMarkdown, removeMarkdown } from "../word/markdownDoc";
 import {
   insertProbePackage,
   timeApiInsert,
+  timeApiRichInsert,
   timeEmptyRoundTrip,
   timeTinyInsert,
 } from "../word/limitsProbe";
@@ -86,9 +87,16 @@ export function setUpLimitsPanel(): void {
       await removeMarkdown(tiny.bookmark);
 
       const api = await timeApiInsert(lines);
-      report.push(`  ${lines.length} lines via API ${String(api.ms).padStart(6)} ms`);
+      report.push(`  ${lines.length} lines via API ${String(api.ms).padStart(6)} ms  (plain)`);
       diagnoseOutput.textContent = report.join("\n");
       await removeMarkdown(api.bookmark);
+
+      const rich = await timeApiRichInsert(lines);
+      report.push(
+        `  ${lines.length} lines via API ${String(rich.ms).padStart(6)} ms  (3 styled runs each)`
+      );
+      diagnoseOutput.textContent = report.join("\n");
+      await removeMarkdown(rich.bookmark);
     } catch (err) {
       report.push(`  FAILED — ${String(err)}`);
     } finally {

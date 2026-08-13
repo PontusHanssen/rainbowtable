@@ -76,3 +76,46 @@ export async function timeApiInsert(lines: string[]): Promise<{ ms: number; book
 
   return { ms: Date.now() - started, bookmark };
 }
+
+/**
+ * The API path with inline formatting, which is what markdown actually needs.
+ *
+ * The plain-paragraph probe says nothing about runs: a finding has bold, code spans and
+ * links inside its paragraphs, so each line becomes several styled ranges rather than one
+ * insertParagraph. If this stays fast, the OOXML path can be abandoned for content.
+ */
+export async function timeApiRichInsert(
+  lines: string[]
+): Promise<{ ms: number; bookmark: string }> {
+  const started = Date.now();
+  const bookmark = "_ptproberich";
+
+  await Word.run(async (context) => {
+    let previous: Word.Paragraph = context.document.getSelection().paragraphs.getFirst();
+    const inserted: Word.Paragraph[] = [];
+
+    lines.forEach((line, index) => {
+      const paragraph = previous.insertParagraph("", Word.InsertLocation.after);
+      paragraph.styleBuiltIn = "Normal";
+
+      // Three styled runs per line: plain, bold, and a coloured monospace span.
+      paragraph.insertText(`${index} `, Word.InsertLocation.end);
+      paragraph.insertText("bold ", Word.InsertLocation.end).font.bold = true;
+
+      const code = paragraph.insertText(line.slice(0, 40), Word.InsertLocation.end);
+      code.font.name = "Courier New";
+      code.font.color = "#A50021";
+
+      previous = paragraph;
+      inserted.push(paragraph);
+    });
+
+    inserted[0]
+      .getRange("Whole")
+      .expandTo(inserted[inserted.length - 1].getRange("Whole"))
+      .insertBookmark(bookmark);
+    await context.sync();
+  });
+
+  return { ms: Date.now() - started, bookmark };
+}
