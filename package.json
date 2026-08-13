@@ -26,9 +26,12 @@
   "devDependencies": {
     "@babel/core": "^8.0.1",
     "@babel/preset-env": "^8.0.2",
+    "@babel/preset-react": "^8.0.1",
     "@babel/preset-typescript": "^8.0.1",
     "@types/office-js": "^1.0.377",
     "@types/office-runtime": "^1.0.35",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
     "@types/webpack": "^5.28.5",
     "acorn": "^8.11.3",
     "babel-loader": "^10.1.1",
@@ -60,5 +63,15 @@
     "ie 11"
   ],
   "description": "Word add-in for security report writing: sort findings by severity, insert a findings table, score CVSS, and paste HTTP messages as code.",
-  "private": true
+  "private": true,
+  "dependencies": {
+    "@codemirror/commands": "^6.10.4",
+    "@codemirror/lang-markdown": "^6.5.2",
+    "@codemirror/language": "^6.12.4",
+    "@codemirror/state": "^6.7.1",
+    "@codemirror/view": "^6.43.8",
+    "codemirror": "^6.0.2",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  }
 }

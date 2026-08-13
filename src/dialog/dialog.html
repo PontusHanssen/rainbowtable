@@ -15,93 +15,118 @@
             --line: #d1d1d1;
             --accent: #0f6cbd;
             --surface: #faf9f8;
+            --warn: #8a5300;
             --error: #b10e1c;
+            --code-bg: #EDEAE7;
+            --block-bg: #D7D2CB;
         }
 
         * { box-sizing: border-box; }
 
         body {
             margin: 0;
-            padding: 16px;
             height: 100vh;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
             font-family: "Segoe UI", -apple-system, system-ui, sans-serif;
             font-size: 13px;
             color: var(--ink);
         }
 
-        label { font-size: 12px; color: var(--muted); }
+        .app { display: flex; flex-direction: column; height: 100%; padding: 12px; gap: 10px; }
 
-        textarea {
-            flex: 1;
-            min-height: 220px;
-            width: 100%;
-            padding: 8px;
-            border: 1px solid var(--line);
-            border-radius: 4px;
-            font-family: Consolas, "Courier New", monospace;
-            font-size: 13px;
-            line-height: 1.45;
-            resize: none;
-        }
+        .tabs { display: flex; gap: 4px; align-items: center; border-bottom: 1px solid var(--line); }
+        .spacer { flex: 1; }
 
-        .preview {
-            white-space: pre-wrap;
-            font-size: 11px;
+        .tab {
+            padding: 8px 14px;
+            border: 0;
+            border-bottom: 2px solid transparent;
+            background: none;
+            font: inherit;
             color: var(--muted);
-            max-height: 25vh;
-            overflow-y: auto;
-            padding: 8px;
-            background: var(--surface);
-            border-radius: 4px;
+            cursor: pointer;
         }
 
-        .actions { display: flex; gap: 8px; justify-content: flex-end; }
+        .tab[aria-selected="true"] {
+            color: var(--accent);
+            border-bottom-color: var(--accent);
+            font-weight: 600;
+        }
+
+        .single, .split { flex: 1; min-height: 0; display: grid; gap: 12px; }
+        .split { grid-template-columns: 1fr 1fr; }
+
+        .editor { border: 1px solid var(--line); border-radius: 4px; overflow: auto; min-height: 0; }
+        .cm-editor { height: 100%; }
+        .cm-scroller { font-family: Consolas, "Courier New", monospace; font-size: 13px; }
+
+        .preview { overflow: auto; padding: 4px 12px; border: 1px solid var(--line); border-radius: 4px; }
+        .preview h1 { font-size: 20px; }
+        .preview h2 { font-size: 17px; }
+        .preview h3 { font-size: 15px; }
+        .preview h4, .preview h5, .preview h6 { font-size: 13px; }
+        .preview pre {
+            background: var(--block-bg);
+            padding: 8px;
+            border-radius: 2px;
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .preview code.inline {
+            background: var(--code-bg);
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 12px;
+            padding: 0 2px;
+        }
+        .preview li.ordered { list-style: decimal; }
+        .preview li { margin-left: 20px; }
+
+        .cvss { overflow: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 8px; }
+        .metric { display: flex; flex-direction: column; gap: 4px; }
+        .label { font-size: 12px; color: var(--muted); }
+        .choices { display: flex; flex-wrap: wrap; gap: 4px; }
+
+        .score {
+            display: flex; align-items: center; gap: 10px;
+            padding: 8px 12px; background: var(--surface); border-radius: 4px;
+        }
+        .score-number { font-size: 26px; font-weight: 600; line-height: 1; }
+        .score-severity { font-weight: 600; }
+
+        .vector {
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 12px; word-break: break-all; color: var(--muted);
+        }
 
         button {
-            padding: 7px 14px;
+            padding: 6px 12px;
             border: 1px solid var(--line);
             border-radius: 4px;
             background: #fff;
             font: inherit;
+            color: var(--ink);
             cursor: pointer;
         }
 
-        button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+        button:hover:not(:disabled) { background: var(--surface); }
         button:disabled { opacity: .5; cursor: default; }
-        .error { color: var(--error); font-size: 12px; }
+        button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+        .choice { padding: 4px 8px; font-size: 12px; }
+        .choice[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+        .written { display: flex; flex-direction: column; gap: 4px; max-height: 20vh; overflow: auto; }
+        .entry { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+        .muted { color: var(--muted); }
+
+        .status { color: var(--muted); font-size: 12px; margin: 0; }
+        .error { color: var(--error); font-size: 12px; margin: 0; }
+        .actions { display: flex; justify-content: flex-end; gap: 8px; }
     </style>
 </head>
 
 <body>
-    <label for="markdown">Write the finding in markdown — headings become Word headings, <code>#</code> is Heading&nbsp;1</label>
-    <textarea id="markdown" spellcheck="true">
-## Title
-
-### Risk:
-
-### Technical Details
-
-### Proof of Concept
-
-### Recommendation
-</textarea>
-
-    <div class="preview" id="preview"></div>
-    <p class="error" id="error"></p>
-
-    <!-- Development only. -->
-    <div id="probe" hidden style="border-top:1px solid var(--line);padding-top:8px">
-        <button id="probe-run">Measure the message limit</button>
-        <pre class="preview" id="probe-output" style="margin:8px 0 0"></pre>
-    </div>
-
-    <div class="actions">
-        <button id="cancel">Cancel</button>
-        <button class="primary" id="insert">Insert at the cursor</button>
-    </div>
+    <div id="app"></div>
 </body>
 
 </html>

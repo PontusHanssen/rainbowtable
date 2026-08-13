@@ -210,7 +210,10 @@ src/word/insertRisk.ts    feature 3 — insertRisk, undoRisk
 src/word/newFinding.ts    insertFinding, removeFinding — the empty finding skeleton
 src/word/markdown.ts      the markdown subset, parsed to blocks and spans (pure)
 src/word/markdownDoc.ts   those blocks rendered to OOXML and inserted
-src/dialog/               the markdown editor, running as an Office dialog
+src/shared/protocol.ts    the typed messages between dialog and pane
+src/dialog/               the React authoring app: editor, CVSS, preview, session list
+src/word/documentPlan.ts  markdown or HTTP turned into paragraphs and runs, as data
+src/word/writePlan.ts     carrying a plan out through the Office.js API
 src/word/http.ts          HTTP message tokenising, pure
 src/word/httpBlock.ts     feature 4 — insertHttpBlock, removeHttpBlock
 src/word/findingsTable.ts feature 2 — previewTable, insertFindingsTable, removeFindingsTable
@@ -458,3 +461,23 @@ Consequences, and they run against the grain of the earlier code:
 - Style resolution and paragraph count barely matter: collapsing 584 paragraphs into one
   saved 10%, dropping styles entirely 14%. Do not optimise the shape of a package; avoid
   the call.
+
+## The authoring dialog
+
+Writing findings happens in a long-lived dialog; the pane keeps the finalising commands.
+
+- **The dialog has no document access.** It runs in its own runtime, so everything it wants
+  written crosses `messageParent`, and the pane answers with `messageChild`. The pane must
+  stay open — it is the only side that can touch the document — and the dialog stays open
+  across a whole report rather than closing after each finding.
+- `src/shared/protocol.ts` types that channel and is imported by both sides. Request ids
+  are **counted, not random**: four random base-36 characters collide about once in a few
+  hundred, and a collision means a reply applied to the wrong request.
+- Size is not a concern on this channel: 8 MB crossed it in 41 ms when measured.
+- **CVSS needs no Word code.** `cvss.ts` is pure, so it runs in the dialog; applying a score
+  rewrites the `Risk:` line and the vector *in the markdown*, and the existing pipeline
+  turns those into a heading `severity.ts` can read and a clickable link. `applyScore` is
+  pure and tested, including that what it writes parses back.
+- The dialog bundle carries React and CodeMirror and is about 690 KB, loaded only when
+  opened. The task pane stays around 37 KB and keeps webpack's size budget; the dialog is
+  excluded from it deliberately, in `webpack.config.js`.

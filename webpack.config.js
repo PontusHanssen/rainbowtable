@@ -44,18 +44,20 @@ module.exports = async (env, options) => {
     entry: {
       taskpane: ["./src/taskpane/taskpane.ts", "./src/taskpane/taskpane.html"],
       commands: "./src/commands/commands.ts",
-      dialog: ["./src/dialog/dialog.ts", "./src/dialog/dialog.html"],
+      dialog: ["./src/dialog/dialog.tsx", "./src/dialog/dialog.html"],
     },
     output: {
       clean: true,
+      // Lazily loaded chunks must resolve under the Pages sub-path, not the site root.
+      publicPath: "auto",
     },
     resolve: {
-      extensions: [".ts", ".html", ".js"],
+      extensions: [".ts", ".tsx", ".html", ".js"],
     },
     module: {
       rules: [
         {
-          test: /\.ts$/,
+          test: /\.tsx?$/,
           exclude: /node_modules/,
           use: {
             loader: "babel-loader",
@@ -120,6 +122,12 @@ module.exports = async (env, options) => {
         chunks: ["dialog"],
       }),
     ],
+    // The dialog carries CodeMirror and React on purpose and is loaded only when opened.
+    // The task pane is the one to keep small, so it keeps the default budget.
+    performance: {
+      hints: dev ? false : "warning",
+      assetFilter: (asset) => !asset.startsWith("dialog"),
+    },
     devServer: {
       hot: true,
       headers: {
