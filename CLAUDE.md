@@ -447,6 +447,14 @@ Consequences, and they run against the grain of the earlier code:
   table, and moving existing content in `sortFindings`, where a single Replace is the only
   thing that preserves the finding's own XML. Those are one-off operations where six
   seconds is tolerable — but do not reach for OOXML by habit.
+- The API's cost scales with **run count**, about 1.6 ms each: 584 plain paragraphs took
+  1.0 s, the same with three styled runs apiece took 2.8 s. It only loses to OOXML past
+  roughly three thousand runs, which a very large and heavily tokenised HTTP message could
+  reach. If that ever bites, colour fewer tokens rather than going back to packages.
+- `documentPlan.ts` turns markdown or an HTTP message into paragraphs and runs as data;
+  `writePlan.ts` carries that out through the API. Both features share the writer, and the
+  plan is what the tests assert — keep rendering decisions in the plan, not in the writer,
+  or they stop being testable.
 - Style resolution and paragraph count barely matter: collapsing 584 paragraphs into one
   saved 10%, dropping styles entirely 14%. Do not optimise the shape of a package; avoid
   the call.

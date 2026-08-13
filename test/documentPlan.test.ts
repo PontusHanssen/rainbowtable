@@ -40,7 +40,9 @@ test("a fenced block becomes one code paragraph per line, verbatim", () => {
   const steps = plan("```\n<script>a & b</script>\n\n# not a heading\n```");
 
   assert.deepEqual(
-    steps.map((step) => (step.kind === "code" ? step.text : step.kind)),
+    steps.map((step) =>
+      step.kind === "code" ? step.runs.map((run) => run.text).join("") : step.kind
+    ),
     ["<script>a & b</script>", "", "# not a heading"]
   );
 });

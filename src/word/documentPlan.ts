@@ -1,3 +1,4 @@
+import { HttpMessage } from "./http";
 import { Block, Inline } from "./markdown";
 
 /**
@@ -18,12 +19,14 @@ export interface RunPlan {
   code?: boolean;
   /** Makes the run a hyperlink to this address. */
   link?: string;
+  /** Six hex digits, for syntax colouring. */
+  colour?: string;
 }
 
 export type ParagraphPlan =
   | { kind: "heading"; level: number; runs: RunPlan[] }
   | { kind: "body"; runs: RunPlan[] }
-  | { kind: "code"; text: string }
+  | { kind: "code"; runs: RunPlan[] }
   | { kind: "listItem"; ordered: boolean; group: number; runs: RunPlan[] };
 
 /** Markdown goes to six #s, and Word has nine heading levels. */
@@ -86,7 +89,7 @@ export function planFromBlocks(blocks: Block[]): ParagraphPlan[] {
       case "code":
         // One paragraph per line: the code style's contextual spacing and matching
         // borders are what join them into a single box.
-        block.lines.forEach((line) => plans.push({ kind: "code", text: line }));
+        block.lines.forEach((line) => plans.push({ kind: "code", runs: [{ text: line }] }));
         break;
       default:
         plans.push({ kind: "body", runs: runsFrom(block.spans) });
@@ -109,4 +112,21 @@ export function listGroups(plans: ParagraphPlan[]): Map<number, number[]> {
   });
 
   return groups;
+}
+
+/**
+ * An HTTP message as code paragraphs, one per line, each line's tokens carrying their own
+ * colour. The same plan shape the markdown path produces, so one writer serves both.
+ */
+export function planFromHttp(
+  message: HttpMessage,
+  colourOf: (kind: string) => { colour: string; bold?: boolean }
+): ParagraphPlan[] {
+  return message.lines.map((line) => ({
+    kind: "code" as const,
+    runs: line.map((token) => {
+      const { colour, bold } = colourOf(token.kind);
+      return { text: token.text, colour, bold };
+    }),
+  }));
 }

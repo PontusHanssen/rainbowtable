@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { Token, detectBody, highlightHttp } from "../src/word/http";
-import { buildHttpBlock } from "../src/word/httpBlock";
+import { colourOf } from "../src/word/httpBlock";
+import { planFromHttp } from "../src/word/documentPlan";
 
 const REQUEST = [
   "POST /api/v1/login?next=/admin HTTP/1.1",
@@ -136,46 +137,48 @@ test("the blank line between headers and body is preserved", () => {
   assert.ok(message.lines[blank + 1].length > 0, "the body follows it");
 });
 
-test("the block is a package of Codeblock paragraphs, escaped", () => {
-  const xml = buildHttpBlock(highlightHttp("GET /?q=<b>&x=1 HTTP/1.1\r\nHost: x"));
+const planOf = (raw: string) => planFromHttp(highlightHttp(raw), colourOf);
 
-  assert.ok(xml.startsWith("<pkg:package"));
-  assert.ok(xml.includes('<w:pStyle w:val="Codeblock"/>'));
-  assert.ok(xml.includes("&lt;b&gt;"), "markup in the message is escaped");
-  assert.ok(xml.includes('w:ascii="Courier New"'), "monospace even without the style");
-  assert.ok(xml.includes('xml:space="preserve"'), "spacing in the message is kept");
-});
+test("each line becomes one code paragraph, its tokens carrying colours", () => {
+  const plans = planOf("GET /?q=<b>&x=1 HTTP/1.1\r\nHost: x");
 
-test("every token kind has a colour", () => {
-  // A missing entry would render that token with no run properties at all.
-  const kinds = new Set(
-    [
-      ...flatten(REQUEST),
-      ...flatten(RESPONSE),
-      ...flatten('HTTP/1.1 200 OK\r\n\r\n<a b="c">d</a>'),
-      ...flatten("POST / HTTP/1.1\r\n\r\nu=1&v=2"),
-    ].map((token) => token.kind)
-  );
-
-  const xml = buildHttpBlock(highlightHttp(REQUEST));
-  assert.ok(kinds.size >= 8, "the fixtures exercise a decent spread of kinds");
-  assert.ok(!xml.includes('<w:color w:val="undefined"/>'));
-});
-
-test("the package defines Codeblock, or Word discards the style reference", () => {
-  const xml = buildHttpBlock(highlightHttp("GET / HTTP/1.1\r\nHost: x"));
-
-  assert.ok(xml.includes('pkg:name="/word/styles.xml"'), "a styles part is present");
-  assert.ok(xml.includes('w:styleId="Codeblock"'), "and it defines the style used");
+  assert.equal(plans.length, 2, "one paragraph per line");
   assert.ok(
-    xml.includes('pkg:name="/word/_rels/document.xml.rels"'),
-    "the document part relates to it"
+    plans.every((plan) => plan.kind === "code"),
+    "written as code, so the block keeps its box"
+  );
+  assert.ok(
+    plans[0].runs.every((run) => /^[0-9A-F]{6}$/.test(run.colour ?? "")),
+    "every run has a colour"
   );
 });
 
-test("code lines are single-spaced with nothing above or below", () => {
-  const xml = buildHttpBlock(highlightHttp("GET / HTTP/1.1\r\nHost: x"));
+test("the text survives planning exactly, markup and all", () => {
+  // The bytes are evidence: what goes in is what reaches the document.
+  const raw = "GET /?q=<b>&x=1 HTTP/1.1\r\nHost: x";
+  const rebuilt = planOf(raw)
+    .map((plan) => plan.runs.map((run) => run.text).join(""))
+    .join("\n");
 
-  assert.ok(xml.includes('<w:spacing w:before="0" w:after="0" w:line="240" w:lineRule="auto"/>'));
-  assert.ok(xml.includes("<w:contextualSpacing/>"), "so consecutive lines form one box");
+  assert.equal(rebuilt, raw.replace(/\r\n/g, "\n"));
+});
+
+test("every token kind resolves to a colour", () => {
+  // An unmapped kind would silently write in whatever colour came before it.
+  const kinds = [
+    ...planOf(REQUEST).flatMap((plan) => plan.runs),
+    ...planOf(RESPONSE).flatMap((plan) => plan.runs),
+  ];
+
+  assert.ok(kinds.length > 20, "the fixtures exercise a decent spread");
+  assert.ok(kinds.every((run) => /^[0-9A-F]{6}$/.test(run.colour ?? "")));
+  assert.equal(colourOf("nonsense").colour, colourOf("text").colour, "unknown falls back");
+});
+
+test("the start line is emphasised so the block reads in greyscale", () => {
+  const [statusLine] = planOf(RESPONSE);
+  assert.ok(
+    statusLine.runs.some((run) => run.bold),
+    "hue alone must not carry the meaning"
+  );
 });
