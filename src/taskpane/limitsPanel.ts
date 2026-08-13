@@ -8,7 +8,12 @@ import {
   syntheticLines,
 } from "../word/limits";
 import { insertMarkdown, removeMarkdown } from "../word/markdownDoc";
-import { insertProbePackage } from "../word/limitsProbe";
+import {
+  insertProbePackage,
+  timeApiInsert,
+  timeEmptyRoundTrip,
+  timeTinyInsert,
+} from "../word/limitsProbe";
 import { byId, show } from "./dom";
 
 /* global HTMLButtonElement, location */
@@ -56,6 +61,39 @@ export function setUpLimitsPanel(): void {
     } finally {
       shapeOutput.textContent = report.join("\n");
       shapes.disabled = false;
+    }
+  };
+
+  const diagnose = byId<HTMLButtonElement>("limits-diagnose");
+  const diagnoseOutput = byId("limits-diagnose-output");
+
+  /**
+   * Where the fixed cost lives. Shape barely mattered and 4 KB already cost seconds, so
+   * the question is whether it is the round trip itself, the OOXML path, or the document.
+   */
+  diagnose.onclick = async () => {
+    diagnose.disabled = true;
+    const lines = syntheticLines(32 * 1024);
+    const report: string[] = [];
+
+    try {
+      report.push(`  empty round trip   ${String(await timeEmptyRoundTrip()).padStart(6)} ms`);
+      diagnoseOutput.textContent = report.join("\n");
+
+      const tiny = await timeTinyInsert();
+      report.push(`  one paragraph      ${String(tiny.ms).padStart(6)} ms  (OOXML)`);
+      diagnoseOutput.textContent = report.join("\n");
+      await removeMarkdown(tiny.bookmark);
+
+      const api = await timeApiInsert(lines);
+      report.push(`  ${lines.length} lines via API ${String(api.ms).padStart(6)} ms`);
+      diagnoseOutput.textContent = report.join("\n");
+      await removeMarkdown(api.bookmark);
+    } catch (err) {
+      report.push(`  FAILED — ${String(err)}`);
+    } finally {
+      diagnoseOutput.textContent = report.join("\n");
+      diagnose.disabled = false;
     }
   };
 
