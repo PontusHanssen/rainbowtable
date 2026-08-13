@@ -1,3 +1,5 @@
+import { escapeXml, wrapInPackage } from "./ooxml";
+
 /**
  * Measuring where large insertions stop working.
  *
@@ -69,4 +71,50 @@ export function formatMeasurements(title: string, results: Measurement[]): strin
     : "nothing succeeded";
 
   return [`${title} — ${summary}`, ...rows].join("\n");
+}
+
+/**
+ * How a code block is laid out in OOXML. Inserting is slow in Word on the web, and the
+ * question these answer is what it is slow *at* — the bytes, the paragraphs, or resolving
+ * a style for each of them.
+ */
+export type Shape = "paragraphs" | "breaks" | "unstyled";
+
+const CODE_STYLE_DEFINITION =
+  '<w:style w:type="paragraph" w:customStyle="1" w:styleId="Codeblock">' +
+  '<w:name w:val="Code block"/><w:basedOn w:val="Normal"/>' +
+  '<w:pPr><w:shd w:val="clear" w:color="auto" w:fill="D7D2CB"/><w:contextualSpacing/></w:pPr>' +
+  '<w:rPr><w:rFonts w:ascii="Courier New" w:hAnsi="Courier New"/><w:sz w:val="20"/></w:rPr></w:style>';
+
+/**
+ * The same lines, three ways:
+ *
+ * - `paragraphs` — one styled paragraph per line, what the add-in does today.
+ * - `breaks` — a single styled paragraph, lines separated by `w:br`. Same bytes, one
+ *   paragraph instead of hundreds, and the same single shaded box on the page.
+ * - `unstyled` — one paragraph per line with no style, to separate the cost of creating
+ *   paragraphs from the cost of resolving a style for each.
+ */
+export function codeBlockPackage(lines: string[], shape: Shape): string {
+  const text = (line: string) => `<w:t xml:space="preserve">${escapeXml(line)}</w:t>`;
+
+  if (shape === "breaks") {
+    const runs = lines.map(text).join("<w:br/>");
+    return wrapInPackage(
+      `<w:p><w:pPr><w:pStyle w:val="Codeblock"/></w:pPr><w:r>${runs}</w:r></w:p><w:p/>`,
+      CODE_STYLE_DEFINITION
+    );
+  }
+
+  const pPr = shape === "paragraphs" ? '<w:pPr><w:pStyle w:val="Codeblock"/></w:pPr>' : "";
+  const body = lines.map((line) => `<w:p>${pPr}<w:r>${text(line)}</w:r></w:p>`).join("");
+
+  return wrapInPackage(`${body}<w:p/>`, shape === "paragraphs" ? CODE_STYLE_DEFINITION : undefined);
+}
+
+/** The lines a synthetic finding of `bytes` would contain, for the shape comparison. */
+export function syntheticLines(bytes: number): string[] {
+  return syntheticFinding(bytes)
+    .split("\n")
+    .filter((line) => !line.startsWith("```") && !line.startsWith("#") && line.trim() !== "");
 }
