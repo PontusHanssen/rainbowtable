@@ -8,133 +8,170 @@
 
     <script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
 
+    <!-- Tokens and primitives, shared with the task pane. -->
+    <link rel="stylesheet" href="../shared/styles.css">
+
     <style>
+        /* Only what the task pane has no use for. Everything else is in styles.css. */
+
         :root {
-            --ink: #242424;
-            --muted: #616161;
-            --line: #d1d1d1;
-            --accent: #0f6cbd;
-            --surface: #faf9f8;
-            --warn: #8a5300;
-            --error: #b10e1c;
-            --code-bg: #EDEAE7;
-            --block-bg: #D7D2CB;
+            --code-bg: #ede9e6;
+            --block-bg: #d7d2cb;
         }
 
-        * { box-sizing: border-box; }
-
-        body {
-            margin: 0;
-            height: 100vh;
-            font-family: "Segoe UI", -apple-system, system-ui, sans-serif;
-            font-size: 13px;
-            color: var(--ink);
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --code-bg: #333333;
+                --block-bg: #2b2b2b;
+            }
         }
 
-        .app { display: flex; flex-direction: column; height: 100%; padding: 12px; gap: 10px; }
+        /*
+         * The chain has to be unbroken: React mounts into #app, so `.app`'s `height:100%`
+         * was resolving against an auto-height div and collapsing. The editor sat at about
+         * 190px no matter how large the dialog was.
+         */
+        html, body, #app { height: 100%; }
 
-        .tabs { display: flex; gap: 4px; align-items: center; border-bottom: 1px solid var(--line); }
+        .app {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            padding: var(--s3);
+            gap: var(--s3);
+        }
+
+        .toolbar {
+            display: flex;
+            gap: var(--s2);
+            align-items: center;
+            padding-bottom: var(--s2);
+            border-bottom: 1px solid var(--line);
+        }
+
         .spacer { flex: 1; }
-        .toggle { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); }
 
-        .tab {
-            padding: 8px 14px;
-            border: 0;
-            border-bottom: 2px solid transparent;
-            background: none;
-            font: inherit;
-            color: var(--muted);
-            cursor: pointer;
-        }
-
-        .tab[aria-selected="true"] {
-            color: var(--accent);
-            border-bottom-color: var(--accent);
-            font-weight: 600;
-        }
-
-        .single, .split { flex: 1; min-height: 0; display: grid; gap: 12px; }
+        .single, .split { flex: 1; min-height: 0; display: grid; gap: var(--s3); }
         .split { grid-template-columns: 1fr 1fr; }
 
-        .editor { border: 1px solid var(--line); border-radius: 4px; overflow: auto; min-height: 0; }
-        .cm-editor { height: 100%; }
-        .cm-scroller { font-family: Consolas, "Courier New", monospace; font-size: 13px; }
+        /* Halving an already narrow dialog leaves two unusable columns. */
+        @media (max-width: 900px) {
+            .split { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
+        }
 
-        .preview { overflow: auto; padding: 4px 12px; border: 1px solid var(--line); border-radius: 4px; }
+        .editor {
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            overflow: auto;
+            min-height: 0;
+        }
+
+        .cm-editor { height: 100%; }
+        .cm-scroller { font-family: Consolas, "Courier New", monospace; font-size: var(--fs-body); }
+
+        /* CodeMirror injects its own light theme, which is glaring inside a dark dialog. */
+        @media (prefers-color-scheme: dark) {
+            .cm-editor { background: var(--surface); color: var(--ink); }
+            .cm-editor .cm-gutters { background: var(--raised); color: var(--muted); border-right-color: var(--line); }
+            .cm-editor .cm-activeLine { background: rgba(255, 255, 255, .04); }
+            .cm-editor .cm-activeLineGutter { background: rgba(255, 255, 255, .06); }
+            .cm-editor .cm-cursor { border-left-color: var(--ink); }
+            .cm-editor .cm-selectionBackground,
+            .cm-editor.cm-focused .cm-selectionBackground { background: #2d4f76; }
+        }
+
+        .preview {
+            overflow: auto;
+            padding: var(--s1) var(--s3);
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+        }
+
         .preview h1 { font-size: 20px; }
         .preview h2 { font-size: 17px; }
         .preview h3 { font-size: 15px; }
-        .preview h4, .preview h5, .preview h6 { font-size: 13px; }
+        .preview h4, .preview h5, .preview h6 { font-size: var(--fs-body); }
+
         .preview pre {
             background: var(--block-bg);
-            padding: 8px;
+            color: #242424;
+            padding: var(--s2);
             border-radius: 2px;
             font-family: Consolas, "Courier New", monospace;
-            font-size: 12px;
+            font-size: var(--fs-small);
             white-space: pre-wrap;
             word-break: break-all;
         }
+
         .preview code.inline {
             background: var(--code-bg);
             font-family: Consolas, "Courier New", monospace;
-            font-size: 12px;
+            font-size: var(--fs-small);
             padding: 0 2px;
         }
-        .preview li.ordered { list-style: decimal; }
-        .preview li { margin-left: 20px; }
+
+        .preview ul, .preview ol { margin: var(--s2) 0; padding-left: var(--s5); }
 
         /* Scoring sits above the editor, compact enough not to crowd it. */
         .cvss-bar {
-            display: flex; flex-direction: column; gap: 6px;
-            padding: 8px; background: var(--surface); border-radius: 4px;
-        }
-        .metrics { display: flex; flex-wrap: wrap; gap: 10px; }
-        .metric { display: flex; align-items: center; gap: 2px; }
-        .metric-id { font-size: 11px; color: var(--muted); margin-right: 2px; min-width: 18px; }
-        .label { font-size: 12px; color: var(--muted); }
-
-        .score-row { display: flex; align-items: baseline; gap: 8px; }
-        .score-number { font-size: 20px; font-weight: 600; line-height: 1; }
-        .score-severity { font-weight: 600; font-size: 12px; }
-        .score-row .vector { flex: 1; }
-        .score-row button { align-self: center; }
-
-        .vector {
-            font-family: Consolas, "Courier New", monospace;
-            font-size: 12px; word-break: break-all; color: var(--muted);
-        }
-
-        button {
-            padding: 6px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            padding: var(--s2);
+            background: var(--raised);
             border: 1px solid var(--line);
-            border-radius: 4px;
-            background: #fff;
-            font: inherit;
-            color: var(--ink);
-            cursor: pointer;
+            border-radius: var(--radius);
         }
 
-        button:hover:not(:disabled) { background: var(--surface); }
-        button:disabled { opacity: .5; cursor: default; }
-        button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-        .choice { padding: 3px 7px; font-size: 12px; min-width: 24px; }
-        .choice[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+        /* Eight groups of single letters run together at a smaller gap — Scope's "C" for
+           Changed ends up beside Confidentiality's own "C". */
+        .metrics { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s4); }
+        .metrics .metric { flex-direction: row; align-items: center; gap: 2px; }
 
-        .written { display: flex; flex-direction: column; gap: 4px; max-height: 20vh; overflow: auto; }
-        .entry { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-        .muted { color: var(--muted); }
+        .metric-id {
+            font-size: var(--fs-label);
+            font-weight: 600;
+            color: var(--ink);
+            margin-right: var(--s1);
+            min-width: 18px;
+        }
+
+        .score-row { display: flex; align-items: center; gap: var(--s2); }
+        .score-row .score-number { font-size: 20px; }
+        .score-row .vector { flex: 1; }
+
+        .written-head {
+            display: flex;
+            align-items: baseline;
+            gap: var(--s2);
+            font-size: var(--fs-label);
+            font-weight: 600;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+            color: var(--muted);
+        }
+
+        /* The heading stays put; only the entries scroll. */
+        .written { display: flex; flex-direction: column; gap: var(--s1); max-height: 20vh; overflow: auto; }
+        .entry { display: flex; justify-content: space-between; align-items: center; gap: var(--s2); }
 
         /* Loud on purpose: writing into a dialog that cannot insert loses work. */
         .disconnected {
-            display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
-            padding: 10px 12px; border-radius: 4px;
-            background: #fdeaea; border: 1px solid var(--error); color: #6b1016;
-            font-size: 12px;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: var(--s2);
+            padding: 10px var(--s3);
+            border-radius: var(--radius);
+            background: var(--error-bg);
+            border: 1px solid var(--error-fg);
+            color: var(--error-fg);
+            font-size: var(--fs-small);
         }
 
-        .status { color: var(--muted); font-size: 12px; margin: 0; }
-        .error { color: var(--error); font-size: 12px; margin: 0; }
-        .actions { display: flex; justify-content: flex-end; gap: 8px; }
+        /* Not the pane's vertical `.actions`: the dialog's sit in a row at the end. */
+        .dialog-actions { display: flex; justify-content: flex-end; align-items: center; gap: var(--s2); }
+        .dialog-actions .feedback { flex: 1; }
     </style>
 </head>
 

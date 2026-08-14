@@ -32,6 +32,22 @@ export interface MarkdownInsertion {
   plainStyles: boolean;
 }
 
+/**
+ * The schemes a run may link to.
+ *
+ * The pane is the only side that can touch the document, and a plan reaches it from the
+ * dialog over `messageParent` as well as from its own panels, so what gets written is
+ * checked here rather than trusted from whoever built the plan. `file:` is the one that
+ * matters: a UNC link in a report leaks the reader's credentials to whatever host it
+ * names, on a single click, in a document that circulates outside the team.
+ */
+const LINKABLE = /^(?:https?|mailto):/i;
+
+/** The address a run may be linked to, or undefined to write it as plain text. */
+export function safeLink(link: string): string | undefined {
+  return LINKABLE.test(link.trim()) ? link.trim() : undefined;
+}
+
 /** Write one paragraph's runs, styling each as it goes. */
 function writeRuns(paragraph: Word.Paragraph, runs: RunPlan[], templateStyles: boolean): void {
   runs.forEach((run) => {
@@ -57,7 +73,12 @@ function writeRuns(paragraph: Word.Paragraph, runs: RunPlan[], templateStyles: b
       range.font.color = `#${run.colour}`;
     }
     if (run.link) {
-      range.hyperlink = run.link;
+      // An address we will not link to still leaves its text in place, which keeps the
+      // evidence intact and visible rather than quietly dropping part of a finding.
+      const address = safeLink(run.link);
+      if (address) {
+        range.hyperlink = address;
+      }
     }
   });
 }
@@ -188,11 +209,32 @@ export async function writePlan(plans: ParagraphPlan[], bookmark: string): Promi
 
   try {
     return await attempt(plans, bookmark, true);
-  } catch {
-    await removeWritten(bookmark).catch(() => undefined);
+  } catch (first) {
+    // The first attempt may have written part of its paragraphs before the sync failed,
+    // so it has to come out before the second one goes in. Nothing to remove is the
+    // ordinary case — the failure usually lands before anything reaches the document.
+    // Anything else means content is in there that we could not take back, and writing
+    // again would leave the user with two copies and no way to tell them apart.
+    try {
+      await removeWritten(bookmark);
+    } catch (cleanup) {
+      if (String(cleanup).indexOf(NOTHING_WRITTEN) < 0) {
+        throw new Error(
+          `${first} Some of it was written and could not be removed (${cleanup}), so nothing ` +
+            "was inserted a second time. Check the document at the cursor before retrying."
+        );
+      }
+    }
     return attempt(plans, bookmark, false);
   }
 }
+
+/**
+ * What `removeWritten` says when the bookmark is gone. `writePlan` tells that apart from
+ * a removal that genuinely failed, which is the difference between retrying safely and
+ * duplicating content.
+ */
+export const NOTHING_WRITTEN = "That content is no longer in the document.";
 
 /** Remove what `writePlan` wrote. */
 export async function removeWritten(bookmark: string): Promise<void> {
@@ -202,7 +244,7 @@ export async function removeWritten(bookmark: string): Promise<void> {
     await context.sync();
 
     if (range.isNullObject) {
-      throw new Error("That content is no longer in the document.");
+      throw new Error(NOTHING_WRITTEN);
     }
 
     range.delete();

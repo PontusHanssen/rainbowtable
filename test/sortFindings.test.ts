@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { childHeadings, findSections, toHeadings } from "../src/word/headings";
 import { parseRisk } from "../src/word/severity";
 import { buildBlocks } from "../src/word/section";
-import { planOrder } from "../src/word/sortFindings";
+import { planOrder, unchanged } from "../src/word/sortFindings";
 import { FixtureParagraph, filledParagraphs, templateParagraphs } from "./fixtures/template";
 
 /**
@@ -135,4 +135,22 @@ test("findSections and buildBlocks agree on what a section's findings are", () =
     section?.findings.map((finding) => finding.text),
     blocksOf(filledParagraphs, "Findings").map((block) => block.heading.text)
   );
+});
+
+/**
+ * Undo replaces the whole findings region with the snapshot, so anything written since
+ * would go with it. The sort records how it left the region and the undo compares.
+ */
+test("unchanged recognises a region nobody has touched", () => {
+  const written = ["Finding A", "Risk: High (7.5)", "Description", "Finding B"];
+
+  assert.equal(unchanged(written, [...written]), true);
+  assert.equal(unchanged(written, written.slice(0, 3)), false, "a paragraph removed");
+  assert.equal(unchanged(written, [...written, "New evidence"]), false, "a paragraph added");
+  assert.equal(
+    unchanged(written, ["Finding A", "Risk: High (7.5)", "Description, rewritten", "Finding B"]),
+    false,
+    "a paragraph edited"
+  );
+  assert.equal(unchanged([], []), true);
 });

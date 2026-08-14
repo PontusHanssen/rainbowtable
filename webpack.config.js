@@ -61,6 +61,18 @@ module.exports = async (env, options) => {
           exclude: /node_modules/,
           use: {
             loader: "babel-loader",
+            options: {
+              /*
+               * Which JSX runtime Babel compiles to has to agree with which React build
+               * webpack resolves, and only webpack knows the mode. Left to itself Babel
+               * sees no NODE_ENV, assumes development and emits `jsxDEV`, while webpack
+               * defines NODE_ENV=production so `react/jsx-dev-runtime` resolves to the
+               * production file — which in React 19 does not export `jsxDEV`. The dialog
+               * then threw on its first element and rendered nothing at all, in every
+               * production build.
+               */
+              presets: [["@babel/preset-react", { runtime: "automatic", development: dev }]],
+            },
           },
         },
         {
@@ -69,7 +81,9 @@ module.exports = async (env, options) => {
           use: "html-loader",
         },
         {
-          test: /\.(png|jpg|jpeg|ttf|woff|woff2|gif|ico)$/,
+          // CSS rides the asset rule rather than css-loader: the stylesheet is shared by
+          // the two HTML entry points and is emitted as a file, not injected at runtime.
+          test: /\.(png|jpg|jpeg|ttf|woff|woff2|gif|ico|css)$/,
           type: "asset/resource",
           generator: {
             filename: "assets/[name][ext][query]",

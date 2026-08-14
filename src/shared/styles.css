@@ -1,0 +1,366 @@
+/*
+ * The one stylesheet, shared by the task pane and the authoring dialog.
+ *
+ * These two surfaces used to carry a copy each of the same tokens and the same class
+ * names with different values — 26px against 20px, 7px padding against 6px, a hover fix
+ * present in one file only. Matching class names made it look shared, so a fix applied to
+ * one never reached the other. Anything both surfaces can show belongs here; rules that
+ * only make sense in one of them stay in that file's own <style> block.
+ *
+ * Webpack emits this through the asset rule, so it needs no CSS loader.
+ */
+
+:root {
+    /* Surfaces and text. */
+    --surface: #ffffff;
+    --raised: #faf9f8;
+    --ink: #242424;
+    --muted: #616161;
+    --line: #d1d1d1;
+
+    /* Accent, in two roles: emphasis (text, underlines) and a solid fill. */
+    --accent: #0f6cbd;
+    --accent-solid: #0f6cbd;
+    --accent-solid-hover: #115ea3;
+    --accent-ink: #ffffff;
+
+    /* Feedback, each a foreground over its own tint. */
+    --info-fg: #616161;
+    --info-bg: #faf9f8;
+    --warn-fg: #7a4900;
+    --warn-bg: #fff4ce;
+    --error-fg: #a4262c;
+    --error-bg: #fdf3f4;
+    --ok-fg: #0e700e;
+    --ok-bg: #f1faf1;
+
+    /* A 4px scale, so spacing stops being invented per rule. */
+    --s1: 4px;
+    --s2: 8px;
+    --s3: 12px;
+    --s4: 16px;
+    --s5: 24px;
+
+    --radius: 4px;
+    --speed: 120ms;
+
+    --fs-body: 13px;
+    --fs-small: 12px;
+    --fs-label: 11px;
+}
+
+/*
+ * Word on the web hands the add-in iframe the browser's colour scheme rather than its own
+ * theme setting, so this follows the OS. A pane that stays white inside a dark Word is the
+ * failure worth fixing; tracking Word's theme exactly would need Office.context.officeTheme
+ * and a device to verify it on.
+ */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --surface: #1f1f1f;
+        --raised: #292929;
+        --ink: #f5f5f5;
+        --muted: #adadad;
+        --line: #3d3d3d;
+
+        --accent: #479ef5;
+        --accent-solid: #115ea3;
+        --accent-solid-hover: #0f6cbd;
+        --accent-ink: #ffffff;
+
+        --info-fg: #adadad;
+        --info-bg: #292929;
+        --warn-fg: #fbc02d;
+        --warn-bg: #3b2f0b;
+        --error-fg: #f1707b;
+        --error-bg: #3b1a1d;
+        --ok-fg: #92c353;
+        --ok-bg: #10250f;
+    }
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    padding: 0;
+    font-family: "Segoe UI", -apple-system, system-ui, sans-serif;
+    font-size: var(--fs-body);
+    /* Both must be stated: an unset background inherits the host's white. */
+    background: var(--surface);
+    color: var(--ink);
+}
+
+/* --- Tabs ---------------------------------------------------------------- */
+
+.tabs {
+    display: flex;
+    border-bottom: 1px solid var(--line);
+}
+
+.tab {
+    padding: var(--s3) var(--s1);
+    border: 0;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    background: none;
+    font: inherit;
+    color: var(--muted);
+    cursor: pointer;
+    transition: color var(--speed), border-color var(--speed);
+}
+
+.tab:hover:not(:disabled) { color: var(--ink); background: none; }
+
+.tab[aria-selected="true"] {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+    font-weight: 600;
+}
+
+/* --- Forms --------------------------------------------------------------- */
+
+label {
+    font-size: var(--fs-small);
+    color: var(--muted);
+}
+
+/* A section heading for a control, quiet enough to read as structure. */
+.field > label, .field-head > label {
+    font-size: var(--fs-label);
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+
+select, textarea, input[type="text"] {
+    width: 100%;
+    padding: 6px var(--s2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    font: inherit;
+    background: var(--surface);
+    color: var(--ink);
+}
+
+select:disabled, textarea:disabled { opacity: .6; cursor: default; }
+
+textarea {
+    font-family: Consolas, "Courier New", monospace;
+    font-size: var(--fs-small);
+    line-height: 1.5;
+    resize: vertical;
+}
+
+.field { display: flex; flex-direction: column; gap: var(--s1); }
+.actions { display: flex; flex-direction: column; gap: 6px; }
+
+.check { display: flex; align-items: center; gap: 6px; }
+.check > input { margin: 0; }
+
+/* --- Buttons ------------------------------------------------------------- */
+
+button {
+    padding: 7px var(--s3);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+    font: inherit;
+    color: var(--ink);
+    cursor: pointer;
+    transition: background var(--speed), border-color var(--speed);
+}
+
+button:hover:not(:disabled) { background: var(--raised); }
+button:disabled { opacity: .5; cursor: default; }
+
+button.primary {
+    background: var(--accent-solid);
+    border-color: var(--accent-solid);
+    color: var(--accent-ink);
+}
+
+/*
+ * These two must out-specify `button:hover:not(:disabled)`, which scores (0,2,1). A plain
+ * `button.primary` is (0,1,1) and loses, which turned the dialog's primary button white on
+ * near-white under the pointer, and blanked the CVSS choice you were about to click.
+ */
+button.primary:hover:not(:disabled) {
+    background: var(--accent-solid-hover);
+    border-color: var(--accent-solid-hover);
+}
+
+button.subtle {
+    border-color: transparent;
+    background: none;
+    color: var(--muted);
+}
+
+button.subtle:hover:not(:disabled) { background: var(--raised); color: var(--ink); }
+
+/* One ring everywhere, drawn outside the control so a filled button keeps it. */
+:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+/* --- CVSS choices -------------------------------------------------------- */
+
+.choices { display: flex; flex-wrap: wrap; gap: var(--s1); }
+.choice { padding: var(--s1) var(--s2); font-size: var(--fs-small); }
+
+.choice[aria-pressed="true"] {
+    background: var(--accent-solid);
+    border-color: var(--accent-solid);
+    color: var(--accent-ink);
+}
+
+.choice[aria-pressed="true"]:hover:not(:disabled) {
+    background: var(--accent-solid-hover);
+    border-color: var(--accent-solid-hover);
+}
+
+.metric { display: flex; flex-direction: column; gap: var(--s1); }
+
+/* --- Score and severity -------------------------------------------------- */
+
+.score {
+    display: flex;
+    align-items: center;
+    gap: var(--s3);
+    padding: var(--s2) var(--s3);
+    background: var(--raised);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+}
+
+.score-number { font-size: 26px; font-weight: 600; line-height: 1; }
+
+.vector {
+    font-family: Consolas, "Courier New", monospace;
+    font-size: var(--fs-small);
+    word-break: break-all;
+    color: var(--muted);
+}
+
+/*
+ * The report template's own severity colours, worn as a pill rather than as text colour.
+ * Medium's amber is about 1.9:1 against white and Info's blue about 2.4:1 — fine for a
+ * heading in a printed report, unreadable as the label of a control. Each keeps the
+ * template's colour and gains a foreground that can be read on it.
+ */
+.pill {
+    display: inline-block;
+    padding: 2px var(--s2);
+    border-radius: 10px;
+    font-size: var(--fs-label);
+    font-weight: 600;
+    letter-spacing: .02em;
+    white-space: nowrap;
+}
+
+.sev-critical { background: #a50021; color: #ffffff; }
+.sev-high { background: #ff0000; color: #ffffff; }
+.sev-medium { background: #ffc000; color: #241a00; }
+.sev-low { background: #00b050; color: #05230f; }
+.sev-informational { background: #00b0f0; color: #04222e; }
+.sev-none { background: var(--raised); color: var(--muted); box-shadow: inset 0 0 0 1px var(--line); }
+
+/* --- Feedback ------------------------------------------------------------ */
+
+/*
+ * One region per panel instead of three loose lines that differed only in colour. The
+ * elements keep their `<panel>-status` / `-warnings` / `-error` ids, so `feedbackFor`
+ * still finds them by name.
+ */
+.feedback {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s1);
+    font-size: var(--fs-small);
+}
+
+.feedback > *:empty { display: none; }
+
+.status, .warnings, .error, .busy {
+    padding: var(--s2) 10px;
+    border-radius: var(--radius);
+    border-left: 3px solid;
+    margin: 0;
+}
+
+.status { background: var(--info-bg); border-left-color: var(--line); color: var(--info-fg); }
+.busy { background: var(--info-bg); border-left-color: var(--accent); color: var(--ink); }
+
+.warnings {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s1);
+    background: var(--warn-bg);
+    border-left-color: var(--warn-fg);
+    color: var(--warn-fg);
+}
+
+.warnings:empty { display: none; }
+.error { background: var(--error-bg); border-left-color: var(--error-fg); color: var(--error-fg); }
+
+/* Standing explanation, not a result — so it must not look like one. */
+.hint {
+    margin: 0;
+    font-size: var(--fs-small);
+    line-height: 1.45;
+    color: var(--muted);
+}
+
+/* --- Busy ---------------------------------------------------------------- */
+
+.busy { display: flex; align-items: center; gap: var(--s2); }
+
+/*
+ * insertOoxml costs about six seconds whatever it carries, and a findings action reads
+ * every paragraph first. Dimmed buttons alone read as a broken pane.
+ */
+.spinner {
+    flex: none;
+    width: 12px;
+    height: 12px;
+    border: 2px solid var(--line);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 700ms linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.progress {
+    height: 2px;
+    overflow: hidden;
+    background: var(--line);
+}
+
+.progress > .bar {
+    width: 40%;
+    height: 100%;
+    background: var(--accent);
+    animation: slide 1.1s ease-in-out infinite;
+}
+
+@keyframes slide {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(350%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+    .spinner { animation: none; border-top-color: var(--accent); }
+    .progress > .bar { animation: none; width: 100%; opacity: .5; }
+}
+
+/* --- Utilities ----------------------------------------------------------- */
+
+.muted { color: var(--muted); }
+
+/* Utility, so it must beat any component rule that sets display. Equal specificity is
+   decided by source order, which is what left the confirm block visible with an empty
+   button. Any new hiding class needs the same treatment, or it must come last. */
+.hidden { display: none !important; }

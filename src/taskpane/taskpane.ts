@@ -6,11 +6,10 @@ import { byId, show } from "./dom";
 
 /* global document, Office, HTMLButtonElement, NodeListOf, location */
 
-/** The finishing tools. Authoring lives in the dialog, launched from the header. */
-const PANELS = ["findings", "cvss", "code"];
-
 function setUpTabs(): void {
   const tabs = document.querySelectorAll(".tab") as NodeListOf<HTMLButtonElement>;
+  // The markup already names every panel on its tab; a second list here could disagree.
+  const panels = Array.from(tabs).map((tab) => tab.dataset.panel as string);
 
   tabs.forEach((tab) =>
     tab.addEventListener("click", () => {
@@ -19,7 +18,7 @@ function setUpTabs(): void {
       tabs.forEach((other) =>
         other.setAttribute("aria-selected", String(other.dataset.panel === chosen))
       );
-      PANELS.forEach((panel) => show(byId(`panel-${panel}`), panel === chosen));
+      panels.forEach((panel) => show(byId(`panel-${panel}`), panel === chosen));
     })
   );
 }
@@ -27,17 +26,18 @@ function setUpTabs(): void {
 /**
  * Mark the pane when it is served from the dev server. The development and production
  * add-ins can be installed side by side, and two identical panes are easy to confuse.
+ *
+ * It sits in the tab strip rather than floating over the corner, where it covered the
+ * launcher button.
  */
 function markDevelopmentBuild(): void {
   if (location.hostname !== "localhost") {
     return;
   }
-  const badge = document.createElement("div");
+  const badge = document.createElement("span");
+  badge.className = "dev";
   badge.textContent = "dev";
-  badge.style.cssText =
-    "position:fixed;top:0;right:0;padding:1px 6px;font-size:10px;font-weight:600;" +
-    "background:#8a5300;color:#fff;border-bottom-left-radius:4px;z-index:1";
-  document.body.appendChild(badge);
+  document.querySelector(".tabs")?.appendChild(badge);
 }
 
 /* Wire the pane once Office is ready; every panel talks to the document. */

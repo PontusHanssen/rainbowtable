@@ -141,6 +141,12 @@ surviving PDF export as internal links**. That rules out plain text and rules ou
   minting a new one — a name is derived from the title, so without reuse a rename would
   add a second bookmark to the same heading and leave the old one behind, one per title
   the finding has ever had.
+- **A reused name is document input, and is validated before it is trusted.** It goes
+  straight into a field instruction (`w:instr=" REF <name> \w \h "`), where a space adds
+  switches and a quote escapes the attribute — and `getBookmarks` returns whatever the
+  file carries, not only what this add-in wrote. `existingBookmark()` therefore matches
+  the exact shape `bookmarkName()` produces and ignores everything else; the cost of
+  ignoring one is a second bookmark on that heading, which is nothing.
 - New names come from `bookmarkName()`: a hash of the section and finding titles, never
   the position, so re-running after a sort cannot repoint an older table's references at
   whatever now occupies that slot. The leading underscore makes them hidden; Word allows
@@ -188,7 +194,23 @@ surviving PDF export as internal links**. That rules out plain text and rules ou
   a command whose effects the user cannot reverse.
 - The snapshot is held in task pane state only: it survives until the next action, a
   rescan, or the pane closing. That is deliberate — it is an undo, not a version history.
-- Do not leave the document half-modified if a step throws.
+- **An undo that would discard work refuses instead.** Restoring replaces the whole
+  findings region, so anything written since the sort goes with it. `sortFindings` records
+  the region's paragraph text as it left it (`SortResult.written`) and `restoreSection`
+  compares before writing. It catches a paragraph added, removed, reordered or retyped —
+  not a change that leaves every paragraph's text alone. It is a guard against losing
+  visible work, not a checksum.
+- Do not leave the document half-modified if a step throws. Where a step retries — the
+  plain-styles fallback in `writePlan` — the first attempt has to come out first, and a
+  removal that fails for any reason other than "nothing was written" stops the retry.
+  Writing again over content that could not be taken back leaves two copies and no way
+  to tell them apart.
+- **What the pane writes is checked at the pane.** A `ParagraphPlan` arrives from the
+  dialog over `messageParent` as well as from the pane's own panels, and the pane is the
+  only side with document access, so `safeLink()` in `writePlan.ts` limits hyperlinks to
+  `http`, `https` and `mailto` where they are written rather than where they were built.
+  A `file:` or UNC link in a circulated report is a one-click credential leak for whoever
+  opens it. A refused address keeps its text, so nothing silently vanishes from a finding.
 
 ## Two halves
 
@@ -207,12 +229,14 @@ the finding being written, the pane scores one already in the document at the cu
 
 ```
 manifest.xml              add-in manifest; localhost URLs must become SharePoint URLs to ship
-src/taskpane/taskpane.html      markup and styles for the whole pane
+src/shared/styles.css     the design system: tokens, primitives, severity, dark mode
+src/taskpane/taskpane.html      markup, plus the rules only the pane uses
 src/taskpane/taskpane.ts        entry point: Office.onReady, tab switching
-src/taskpane/dom.ts             byId/show/make plus the per-panel feedback lines
+src/taskpane/dom.ts             byId/show/make, the feedback region, guard and busy states
 src/taskpane/findingsPanel.ts   section picker, sorting, findings table
 src/taskpane/cvssPanel.ts       CVSS metric buttons and the live score
-src/taskpane/httpPanel.ts       the Burp paste box
+src/taskpane/codePanel.ts       the code and Burp paste box
+src/taskpane/markdownPanel.ts   the dialog launcher and the pane's half of its channel
 src/word/headings.ts      heading scan and the relative section/finding model
 src/word/severity.ts      strict `Risk:` parsing and the sort comparator
 src/word/ooxml.ts         reordering paragraphs inside a captured OOXML package
@@ -390,14 +414,39 @@ Description, Technical details, Proof of concept, Recommendation, with `[TODO]` 
 - `Risk: [TODO]` deliberately does not parse, so a half-written finding shows up in the
   sort and table pre-flight warnings until it is scored.
 
+## One stylesheet for both surfaces
+
+`src/shared/styles.css` holds every token and primitive; `taskpane.html` and `dialog.html`
+link it and keep only the rules the other has no use for. **Do not restyle a shared
+primitive in one of them.** The two used to carry a copy each — same class names, drifted
+values (26px against 20px, 7px padding against 6px) — and because the names matched it
+looked shared, so a fix applied to one never reached the other. That is how a primary
+button that turned white-on-white under the pointer survived in the dialog only.
+
+- It ships through **the asset rule in `webpack.config.js`**, not a CSS loader: `.css` is
+  in the same `asset/resource` rule as the icons, `html-loader` resolves the `<link>` and
+  rewrites the href to `assets/styles.css`. No `css-loader`, no `style-loader`, no runtime
+  injection.
+- **Hover rules must out-specify `button:hover:not(:disabled)`**, which scores (0,2,1).
+  A bare `button.primary` is (0,1,1) and loses; so does `.choice[aria-pressed="true"]` at
+  (0,2,0). Both therefore carry their own `:hover:not(:disabled)` rule.
+- **Dark mode is `prefers-color-scheme` only.** Word on the web hands the add-in iframe the
+  browser's scheme, not Word's own theme setting. `body` states its background explicitly —
+  unset, it inherits the host's white and the pane glares inside a dark Word.
+- Severity is `.sev-critical … .sev-informational`, the template's own colours worn as a
+  **pill** with a readable paired foreground. As text colour they were unusable: the
+  template's amber is about 1.9:1 against white, and its Info blue — what a freshly opened
+  calculator shows — about 2.4:1. There is no `SEVERITY_COLOURS` map in TypeScript any
+  more; do not reintroduce one.
+
 ## A note on the `hidden` class
 
-`.hidden` in `taskpane.html` carries `!important`. Component rules like `.confirm` also set
+`.hidden` in `styles.css` carries `!important`. Component rules like `.pending` also set
 `display`, and at equal specificity the later rule wins — which once left the confirmation
 block on screen with an empty button. Any new utility class that hides things needs the
 same treatment, or it must come last.
 
-## Never fail silently
+## Never fail silently, and never look idle
 
 A task pane button that returns early without saying why is indistinguishable from a
 broken one — this happened once already, when all three findings buttons returned quietly
@@ -406,6 +455,36 @@ Where an action genuinely needs a selection, its button is disabled (`updateAvai
 in `findingsPanel.ts`), because a disabled button explains itself and a dead one does not.
 Note that `guard()` re-enables every button in its `finally`, so availability has to be
 reapplied afterwards; `act()` exists to do that.
+
+The same applies while an action runs. **Every `guard()` call passes a busy label** —
+"Sorting the findings…", "Building the table…" — which shows a spinner in the panel's
+feedback region and an indeterminate bar under the tabs. Dimmed buttons alone were the
+whole of the loading state, for operations that cost six seconds of `insertOoxml` after
+reading every paragraph in the document; that is indistinguishable from a pane that has
+stopped answering.
+
+Errors reach the user through `messageOf()`, which strips the `Error: ` prefix. The
+messages thrown here are written as sentences for the person reading them — an undo
+explaining why it refused, a write explaining what it could not take back — and the prefix
+makes them read like a crash.
+
+## Show the work before doing it
+
+Sorting and tabulating both preview into the `.pending` block: every finding listed with
+its severity pill, in the order the action would leave them, with Confirm and Cancel
+beneath. Only then is the document touched.
+
+- **The data is free.** `summarize()` already ran `planOrder`, and `previewTable` already
+  walked the blocks; `findingSummaries()` in `section.ts` turns those into
+  `FindingSummary[]`. No extra round trip to Word, so do not add one.
+- Findings whose risk cannot be read appear **in the list**, named, with the reason, rather
+  than being counted in a warning line. That is what lets someone fix the document instead
+  of discovering afterwards that findings were left behind.
+- Sorting therefore asks for confirmation every time, not only when something is
+  unreadable. Deliberate: the edit is slow, Ctrl+Z cannot reach it, and its undo refuses
+  once the region has been edited.
+- The pending action carries its kind (`"sort" | "table"`) explicitly. It used to be
+  inferred by comparing the confirm button's label to the string `"Sort the rest anyway"`.
 
 ## Writing a finding in markdown
 
@@ -502,6 +581,22 @@ Writing findings happens in a long-lived dialog; the pane keeps the finalising c
 - The dialog bundle carries React and CodeMirror and is about 690 KB, loaded only when
   opened. The task pane stays around 37 KB and keeps webpack's size budget; the dialog is
   excluded from it deliberately, in `webpack.config.js`.
+- **Babel's JSX runtime has to be told the build mode**, in `webpack.config.js` rather than
+  `babel.config.json`. Left alone, Babel sees no `NODE_ENV`, assumes development and emits
+  `jsxDEV`, while webpack defines `NODE_ENV=production` so `react/jsx-dev-runtime` resolves
+  to the production file — which in React 19 does not export `jsxDEV`. The dialog threw on
+  its first element and **rendered nothing at all in every production build**, while
+  `npm run dev-server` was fine, so it never showed up in development.
+- **`html`, `body` and `#app` all carry `height: 100%`.** React mounts into `#app`, so
+  `.app`'s own `height: 100%` had an auto-height div to resolve against and collapsed: the
+  editor sat at about 190px no matter how large the dialog was opened.
+- **Nothing in the preview may navigate the frame.** A finding routinely carries links —
+  the CVSS bar writes one itself — and following one replaces `dialog.html`, taking the
+  unwritten finding with it: nothing is persisted, and a dialog that has lost its pane
+  cannot be reconnected to. `Preview.tsx` calls `preventDefault()` and opens a new window,
+  which holds whatever the host makes of `target`.
+- Inserting clears the editor **and the CVSS vector**. The vector used to persist, so the
+  next finding started out silently carrying the previous one's score.
 
 ## Fenced code highlighting
 

@@ -215,8 +215,40 @@ test("a bookmark already on the heading wins over a freshly derived name", () =>
 });
 
 test("existingBookmark picks only our own bookmarks, deterministically", () => {
-  assert.equal(existingBookmark(["_Ref12345", "_ptfbbbb0", "_GoBack"]), "_ptfbbbb0");
-  assert.equal(existingBookmark(["_ptfcccc0", "_ptfaaaa0"]), "_ptfaaaa0", "stable choice");
+  assert.equal(existingBookmark(["_Ref12345", "_ptfbbbbbbbb0", "_GoBack"]), "_ptfbbbbbbbb0");
+  assert.equal(
+    existingBookmark(["_ptfcccccccc0", "_ptfaaaaaaaa0"]),
+    "_ptfaaaaaaaa0",
+    "stable choice"
+  );
   assert.equal(existingBookmark(["_Ref12345", "_GoBack"]), undefined);
   assert.equal(existingBookmark([]), undefined);
+});
+
+test("existingBookmark accepts exactly what bookmarkName produces", () => {
+  const mine = bookmarkName("Vulnerabilities", "Weak transport layer security", 3);
+  assert.equal(existingBookmark([mine]), mine);
+});
+
+/**
+ * A reused name goes straight into a field instruction, so anything that could carry a
+ * switch or escape the attribute has to be left alone — a fresh bookmark is minted
+ * instead, which costs nothing but a second name on the heading.
+ */
+test("existingBookmark ignores names that could not be ours", () => {
+  const hostile = [
+    '_ptfdeadbeef0" w:foo="', // escapes the w:instr attribute
+    "_ptfdeadbeef0 \\c \\* MERGEFORMAT", // adds switches to the REF field
+    "_ptfdeadbeef0 INCLUDEPICTURE", // any space at all
+    "_PTFdeadbeef0", // our prefix is written lower case
+    "_ptfnothex00", // not a hash
+    "_ptf", // prefix alone
+  ];
+
+  hostile.forEach((name) => assert.equal(existingBookmark([name]), undefined, name));
+  assert.equal(
+    existingBookmark([...hostile, "_ptfdeadbeef0"]),
+    "_ptfdeadbeef0",
+    "a real one among them is still found"
+  );
 });

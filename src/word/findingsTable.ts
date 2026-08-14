@@ -1,6 +1,13 @@
 import { Heading, Section, headingNumber } from "./headings";
 import { run, wrapInPackage } from "./ooxml";
-import { Block, SkippedFinding, scanSection, skippedFindings } from "./section";
+import {
+  Block,
+  FindingSummary,
+  SkippedFinding,
+  findingSummaries,
+  scanSection,
+  skippedFindings,
+} from "./section";
 import { Severity } from "./severity";
 
 /* global Word */
@@ -19,6 +26,8 @@ export interface TablePreview {
   rows: number;
   /** Findings with no readable risk rating. They are still listed, without a severity. */
   skipped: SkippedFinding[];
+  /** The rows the table would carry, in document order, for the pane to show first. */
+  findings: FindingSummary[];
 }
 
 export interface TableResult extends TablePreview {
@@ -181,11 +190,21 @@ export function buildFindingsTable(rows: FindingRow[]): string {
 /** Our bookmarks on a heading, if any. Names are hidden, so ask for hidden ones. */
 export const FINDING_BOOKMARK_PREFIX = "_ptf";
 
+/**
+ * Exactly what `bookmarkName` produces, and nothing else.
+ *
+ * A reused name is document input, not ours: `getBookmarks` returns whatever the file
+ * carries, and the name goes straight into a field instruction — `w:instr=" REF <name>
+ * \w \h "` — where a space adds switches and a quote escapes the attribute. Word's own
+ * UI cannot create such a name, but the file format allows one and a report may have
+ * passed through other tools. Anything that does not look like ours is ignored, which
+ * costs only a fresh bookmark alongside it.
+ */
+const FINDING_BOOKMARK = /^_ptf[0-9a-f]{8}\d+$/;
+
 /** The bookmark this add-in already put on a heading, if there is one. */
 export function existingBookmark(names: string[]): string | undefined {
-  return [...names]
-    .filter((name) => name.toLowerCase().startsWith(FINDING_BOOKMARK_PREFIX))
-    .sort()[0];
+  return [...names].filter((name) => FINDING_BOOKMARK.test(name)).sort()[0];
 }
 
 /**
@@ -221,7 +240,11 @@ export function buildRows(
 export async function previewTable(section: Section): Promise<TablePreview> {
   return Word.run(async (context) => {
     const { blocks } = await scanSection(context, section);
-    return { rows: blocks.length, skipped: skippedFindings(blocks) };
+    return {
+      rows: blocks.length,
+      skipped: skippedFindings(blocks),
+      findings: findingSummaries(blocks),
+    };
   });
 }
 
@@ -263,7 +286,12 @@ export async function insertFindingsTable(section: Section): Promise<TableResult
     inserted.insertBookmark(bookmark);
     await context.sync();
 
-    return { rows: rows.length, skipped: skippedFindings(blocks), bookmark };
+    return {
+      rows: rows.length,
+      skipped: skippedFindings(blocks),
+      findings: findingSummaries(blocks),
+      bookmark,
+    };
   });
 }
 

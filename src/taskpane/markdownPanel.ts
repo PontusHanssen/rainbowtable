@@ -1,7 +1,7 @@
 import { ToDialog, ToPane, decode, encode } from "../shared/protocol";
 import { insertMarkdown, removeMarkdown } from "../word/markdownDoc";
 import { removeWritten, writePlan } from "../word/writePlan";
-import { byId, feedbackFor, guard, show } from "./dom";
+import { byId, feedbackFor, guard, messageOf, show } from "./dom";
 
 /* global Office, URL, HTMLButtonElement, HTMLTextAreaElement, location */
 
@@ -28,12 +28,17 @@ export function setUpMarkdownPanel(): void {
     (plainStyles ? " This document has no template styles, so plain ones were used." : "");
 
   const write = (source: string) =>
-    guard(buttons, feedback, async () => {
-      const result = await insertMarkdown(source);
-      feedback.status(describe(result.paragraphs, result.plainStyles));
-      lastBookmark = result.bookmark;
-      show(undo, true);
-    });
+    guard(
+      buttons,
+      feedback,
+      async () => {
+        const result = await insertMarkdown(source);
+        feedback.status(describe(result.paragraphs, result.plainStyles));
+        lastBookmark = result.bookmark;
+        show(undo, true);
+      },
+      "Inserting the finding…"
+    );
 
   /** Show the in-pane editor when the dialog cannot be used. */
   const useFallback = (why: string) => {
@@ -50,6 +55,9 @@ export function setUpMarkdownPanel(): void {
       if (request.kind === "ping") {
         reply({ kind: "pong", requestId: request.requestId });
       } else if (request.kind === "insert") {
+        // The dialog is where the user is looking, but the writing happens here and takes
+        // seconds — say so, or the pane looks idle while it works.
+        feedback.busy("Inserting the finding…");
         // Already planned and coloured by the dialog; the pane only writes.
         const result = await writePlan(request.plans, "_ptmd");
         lastBookmark = result.bookmark;
@@ -63,16 +71,19 @@ export function setUpMarkdownPanel(): void {
           plainStyles: result.plainStyles,
         });
       } else if (request.kind === "remove") {
+        feedback.busy("Removing the finding…");
         await removeWritten(request.bookmark);
-        feedback.status("Removed.");
+        feedback.status("Removed what the editor last inserted.");
         reply({ kind: "removed", requestId: request.requestId });
       } else {
         dialog.close();
         feedback.status("Editor closed.");
       }
     } catch (err) {
-      feedback.error(String(err));
-      reply({ kind: "failed", requestId: request.requestId, reason: String(err) });
+      feedback.error(messageOf(err));
+      reply({ kind: "failed", requestId: request.requestId, reason: messageOf(err) });
+    } finally {
+      feedback.busy();
     }
   };
 
@@ -112,13 +123,18 @@ export function setUpMarkdownPanel(): void {
   insert.onclick = () => write(input.value);
 
   undo.onclick = () =>
-    guard(buttons, feedback, async () => {
-      if (!lastBookmark) {
-        return;
-      }
-      await removeMarkdown(lastBookmark);
-      lastBookmark = undefined;
-      show(undo, false);
-      feedback.status("Removed what was last inserted.");
-    });
+    guard(
+      buttons,
+      feedback,
+      async () => {
+        if (!lastBookmark) {
+          return;
+        }
+        await removeMarkdown(lastBookmark);
+        lastBookmark = undefined;
+        show(undo, false);
+        feedback.status("Removed what was last inserted.");
+      },
+      "Removing the finding…"
+    );
 }

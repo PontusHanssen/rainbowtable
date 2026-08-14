@@ -6,6 +6,7 @@ import { removeWritten, writePlan } from "../word/writePlan";
 import { byId, feedbackFor, guard, make, show } from "./dom";
 
 /* global HTMLButtonElement, HTMLInputElement, HTMLSelectElement, HTMLTextAreaElement */
+/* global clearTimeout, setTimeout */
 
 const CODE_BOOKMARK = "_ptcode";
 
@@ -40,63 +41,88 @@ export function setUpCodePanel(): void {
   const describe = () => {
     const code = input.value;
     insert.disabled = code.trim() === "";
+    // Nothing will be highlighted, so offering a language pretends otherwise.
+    language.disabled = !highlight.checked;
+
+    const say = (text: string) => {
+      detected.textContent = text;
+      show(detected, text !== "");
+    };
 
     if (!code.trim()) {
-      detected.textContent = "";
+      say("");
       return;
     }
     if (!highlight.checked) {
-      detected.textContent = "Highlighting off — it will go in as plain code.";
+      say("plain code");
       return;
     }
     if (language.value !== "auto") {
-      detected.textContent = `Will be highlighted as ${language.value}.`;
+      say(language.value);
       return;
     }
 
     const message = highlightHttp(code);
     if (message.kind !== "unknown") {
-      detected.textContent = `Recognised as an HTTP ${message.kind}.`;
+      say(`HTTP ${message.kind}`);
       return;
     }
 
     const guess = detectLanguage(code);
-    detected.textContent = guess
-      ? `Looks like ${guess}.`
-      : "Not recognised — it will go in as plain code.";
+    say(guess ? `looks like ${guess}` : "not recognised — plain code");
   };
 
-  input.oninput = describe;
+  /**
+   * Detection walks the whole snippet, so it does not belong on every keystroke — a
+   * pasted response can be tens of kilobytes.
+   */
+  let pending: ReturnType<typeof setTimeout> | undefined;
+  const describeSoon = () => {
+    clearTimeout(pending);
+    pending = setTimeout(describe, 150);
+  };
+
+  input.oninput = describeSoon;
   language.onchange = describe;
   highlight.onchange = describe;
 
   insert.onclick = () =>
-    guard(buttons, feedback, async () => {
-      const planned = await planCode(input.value, {
-        language: language.value === "auto" ? undefined : language.value,
-        highlight: highlight.checked,
-      });
+    guard(
+      buttons,
+      feedback,
+      async () => {
+        const planned = await planCode(input.value, {
+          language: language.value === "auto" ? undefined : language.value,
+          highlight: highlight.checked,
+        });
 
-      const written = await writePlan(planned.plans, CODE_BOOKMARK);
-      feedback.status(
-        `Inserted ${written.paragraphs} lines` +
-          (planned.language ? ` as ${planned.language}.` : " as plain code.") +
-          (written.plainStyles ? " This document has no code style, so plain text was used." : "")
-      );
-      inserted = written.bookmark;
-      show(undo, true);
-    });
+        const written = await writePlan(planned.plans, CODE_BOOKMARK);
+        feedback.status(
+          `Inserted ${written.paragraphs} lines` +
+            (planned.language ? ` as ${planned.language}.` : " as plain code.") +
+            (written.plainStyles ? " This document has no code style, so plain text was used." : "")
+        );
+        inserted = written.bookmark;
+        show(undo, true);
+      },
+      "Inserting the code…"
+    );
 
   undo.onclick = () =>
-    guard(buttons, feedback, async () => {
-      if (!inserted) {
-        return;
-      }
-      await removeWritten(inserted);
-      inserted = undefined;
-      show(undo, false);
-      feedback.status("Removed the inserted block.");
-    });
+    guard(
+      buttons,
+      feedback,
+      async () => {
+        if (!inserted) {
+          return;
+        }
+        await removeWritten(inserted);
+        inserted = undefined;
+        show(undo, false);
+        feedback.status("Removed the inserted block.");
+      },
+      "Removing the block…"
+    );
 
   describe();
 }

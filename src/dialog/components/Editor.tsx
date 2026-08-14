@@ -15,9 +15,16 @@ import { syntaxHighlighting, defaultHighlightStyle } from "@codemirror/language"
 export function Editor({
   value,
   onChange,
+  focusToken,
 }: {
   value: string;
   onChange: (next: string) => void;
+  /**
+   * Bumped by the parent to ask for focus back — after an insert, which empties the
+   * editor to the skeleton and would otherwise leave you clicking into it before you can
+   * type the next finding.
+   */
+  focusToken?: number;
 }): ReactElement {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | undefined>(undefined);
@@ -66,6 +73,12 @@ export function Editor({
       });
     }
   }, [value]);
+
+  useEffect(() => {
+    if (focusToken) {
+      view.current?.focus();
+    }
+  }, [focusToken]);
 
   return <div className="editor" ref={host} />;
 }

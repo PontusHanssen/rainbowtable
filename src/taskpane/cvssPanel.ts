@@ -7,22 +7,9 @@ import {
   severityFor,
 } from "../word/cvss";
 import { RiskUndo, insertRisk, undoRisk } from "../word/insertRisk";
-import { Severity } from "../word/severity";
 import { byId, feedbackFor, guard, make, show } from "./dom";
 
 /* global HTMLButtonElement */
-
-/**
- * The colours the report template's own severity character styles use, so the pane shows
- * what the document will look like rather than a palette of its own.
- */
-const SEVERITY_COLOURS: Record<Severity, string> = {
-  Critical: "#A50021",
-  High: "#FF0000",
-  Medium: "#FFC000",
-  Low: "#00B050",
-  Informational: "#00B0F0",
-};
 
 export function setUpCvssPanel(): void {
   const scoreLabel = byId("cvss-score");
@@ -47,7 +34,9 @@ export function setUpCvssPanel(): void {
 
     scoreLabel.textContent = score.toFixed(1);
     severityLabel.textContent = severity;
-    severityLabel.style.color = SEVERITY_COLOURS[severity];
+    // The template's own severity colours, worn as a pill. As text colour they were
+    // unreadable — its amber is about 1.9:1 against white.
+    severityLabel.className = `pill sev-${severity.toLowerCase()}`;
     vectorLabel.textContent = formatVector(vector);
 
     choices.forEach(({ id, code, button }) =>
@@ -57,15 +46,23 @@ export function setUpCvssPanel(): void {
 
   METRICS.forEach((metric) => {
     const group = make("div", "metric");
-    group.appendChild(make("label", undefined, metric.name));
+    const label = make("label", undefined, metric.name);
+    label.id = `cvss-metric-${metric.id}`;
+    group.appendChild(label);
 
+    // Named as a group, so the choices are not read out as bare words with no context.
     const row = make("div", "choices");
+    row.setAttribute("role", "group");
+    row.setAttribute("aria-labelledby", label.id);
+
     metric.options.forEach(([code, name]) => {
       const button = make("button", "choice", name);
       button.title = `${metric.id}:${code} — ${name}`;
       button.onclick = () => {
-        vector[metric.id] = code;
+        // The last result described the vector as it was; the undo it left behind still
+        // points at real text in the document, so that stays.
         feedback.status("");
+        vector[metric.id] = code;
         render();
       };
       choices.push({ id: metric.id, code, button });
@@ -77,23 +74,33 @@ export function setUpCvssPanel(): void {
   });
 
   insert.onclick = () =>
-    guard(buttons, feedback, async () => {
-      const written = await insertRisk(vector);
-      feedback.status(`Wrote "Risk: ${written.rating}" and the vector below it.`);
-      lastWritten = written.undo;
-      show(undo, true);
-    });
+    guard(
+      buttons,
+      feedback,
+      async () => {
+        const written = await insertRisk(vector);
+        feedback.status(`Wrote "Risk: ${written.rating}" and the vector below it.`);
+        lastWritten = written.undo;
+        show(undo, true);
+      },
+      "Writing the risk…"
+    );
 
   undo.onclick = () =>
-    guard(buttons, feedback, async () => {
-      if (!lastWritten) {
-        return;
-      }
-      await undoRisk(lastWritten);
-      lastWritten = undefined;
-      show(undo, false);
-      feedback.status("Undone — the Risk line is back as it was.");
-    });
+    guard(
+      buttons,
+      feedback,
+      async () => {
+        if (!lastWritten) {
+          return;
+        }
+        await undoRisk(lastWritten);
+        lastWritten = undefined;
+        show(undo, false);
+        feedback.status("Undone — the Risk line is back as it was.");
+      },
+      "Putting the Risk line back…"
+    );
 
   render();
 }

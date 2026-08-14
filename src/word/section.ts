@@ -1,5 +1,5 @@
 import { Heading, Section, childHeadings, toHeadings } from "./headings";
-import { Risk, isRiskHeading, parseRisk } from "./severity";
+import { Risk, Severity, isRiskHeading, parseRisk } from "./severity";
 
 /* global Word */
 
@@ -58,6 +58,36 @@ export function spanRange(
   return following < paragraphs.items.length
     ? from.expandTo(paragraphs.items[following].getRange("Start"))
     : from.expandTo(paragraphs.items[end].getRange("Whole"));
+}
+
+/**
+ * A finding as the task pane lists it back to the user, before anything is written.
+ *
+ * The pane cannot show `Block`s: they carry paragraph indexes and Word ranges, and the
+ * point of the preview is to be readable.
+ */
+export interface FindingSummary {
+  title: string;
+  /** Absent when the risk heading could not be read; `reason` then says why. */
+  severity?: Severity;
+  score?: number;
+  reason?: string;
+}
+
+/**
+ * Findings as they would be listed, in the order given.
+ *
+ * Every findings action already computes this and throws it away — sorting to decide
+ * whether anything moved, tabulating to count the rows — so showing the user what is
+ * about to happen costs no extra round trip to Word.
+ */
+export function findingSummaries(blocks: Block[]): FindingSummary[] {
+  return blocks.map((block) => ({
+    title: block.heading.text,
+    severity: block.risk?.severity,
+    score: block.risk?.score,
+    reason: block.risk ? undefined : block.skipReason,
+  }));
 }
 
 /** The findings whose risk rating could not be read. */
