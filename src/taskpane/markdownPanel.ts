@@ -51,10 +51,18 @@ export function setUpMarkdownPanel(): void {
   const serve = async (dialog: Office.Dialog, request: ToPane): Promise<void> => {
     const reply = (message: ToDialog) => dialog.messageChild(encode(message));
 
+    /*
+     * The heartbeat is answered without touching the feedback region. It arrives every
+     * five seconds, so clearing the busy state here would wipe "Inserting the finding…"
+     * part-way through the insert it exists to explain.
+     */
+    if (request.kind === "ping") {
+      reply({ kind: "pong", requestId: request.requestId });
+      return;
+    }
+
     try {
-      if (request.kind === "ping") {
-        reply({ kind: "pong", requestId: request.requestId });
-      } else if (request.kind === "insert") {
+      if (request.kind === "insert") {
         // The dialog is where the user is looking, but the writing happens here and takes
         // seconds — say so, or the pane looks idle while it works.
         feedback.busy("Inserting the finding…");

@@ -44,11 +44,9 @@ function previewRow(finding: FindingSummary) {
   );
   row.appendChild(pill);
 
-  const title = make("span", "preview-title", finding.title);
-  if (finding.score !== undefined) {
-    title.textContent = `${finding.score.toFixed(1)} — ${finding.title}`;
-  }
-  row.appendChild(title);
+  const label =
+    finding.score === undefined ? finding.title : `${finding.score.toFixed(1)} — ${finding.title}`;
+  row.appendChild(make("span", "preview-title", label));
 
   if (finding.reason) {
     row.appendChild(make("span", "preview-note", finding.reason));
