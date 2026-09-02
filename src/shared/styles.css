@@ -24,6 +24,15 @@
     --accent-solid-hover: #115ea3;
     --accent-ink: #ffffff;
 
+    /* Editor syntax colours, selected to remain distinct on either code surface. */
+    --editor-keyword: #0550ae;
+    --editor-string: #0a3069;
+    --editor-number: #953800;
+    --editor-comment: #57606a;
+    --editor-name: #8250df;
+    --editor-type: #116329;
+    --editor-operator: #242424;
+
     /* Feedback, each a foreground over its own tint. */
     --info-fg: #616161;
     --info-bg: #faf9f8;
@@ -68,6 +77,14 @@
         --accent-solid-hover: #0f6cbd;
         --accent-ink: #ffffff;
 
+        --editor-keyword: #9cdcfe;
+        --editor-string: #ce9178;
+        --editor-number: #b5cea8;
+        --editor-comment: #b6b6b6;
+        --editor-name: #d7a8ff;
+        --editor-type: #4ec9b0;
+        --editor-operator: #f5f5f5;
+
         --info-fg: #adadad;
         --info-bg: #292929;
         --warn-fg: #fbc02d;
@@ -89,6 +106,11 @@ body {
     /* Both must be stated: an unset background inherits the host's white. */
     background: var(--surface);
     color: var(--ink);
+    color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+    body { color-scheme: dark; }
 }
 
 /* --- Tabs ---------------------------------------------------------------- */
@@ -260,11 +282,16 @@ button.subtle:hover:not(:disabled) { background: var(--raised); color: var(--ink
 }
 
 .sev-critical { background: #a50021; color: #ffffff; }
-.sev-high { background: #ff0000; color: #ffffff; }
+.sev-high { background: #ff0000; color: #1f1f1f; }
 .sev-medium { background: #ffc000; color: #241a00; }
 .sev-low { background: #00b050; color: #05230f; }
 .sev-informational { background: #00b0f0; color: #04222e; }
 .sev-none { background: var(--raised); color: var(--muted); box-shadow: inset 0 0 0 1px var(--line); }
+
+/* Pure red cannot carry normal-size text at AA contrast; darken it only in the dark UI. */
+@media (prefers-color-scheme: dark) {
+    .sev-high { background: #d60000; color: #ffffff; }
+}
 
 /* --- Feedback ------------------------------------------------------------ */
 

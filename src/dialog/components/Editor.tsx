@@ -3,7 +3,21 @@ import { EditorState } from "@codemirror/state";
 import { EditorView, keymap, lineNumbers, highlightActiveLine } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
 import { markdown } from "@codemirror/lang-markdown";
-import { syntaxHighlighting, defaultHighlightStyle } from "@codemirror/language";
+import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
+import { tags } from "@lezer/highlight";
+
+const editorHighlightStyle = HighlightStyle.define([
+  { tag: [tags.keyword, tags.controlKeyword, tags.moduleKeyword], color: "var(--editor-keyword)" },
+  { tag: [tags.string, tags.special(tags.string)], color: "var(--editor-string)" },
+  { tag: [tags.number, tags.bool, tags.null], color: "var(--editor-number)" },
+  { tag: [tags.comment, tags.lineComment, tags.blockComment], color: "var(--editor-comment)" },
+  { tag: [tags.variableName, tags.propertyName, tags.attributeName], color: "var(--editor-name)" },
+  { tag: [tags.typeName, tags.tagName, tags.className], color: "var(--editor-type)" },
+  { tag: [tags.operator, tags.punctuation, tags.bracket], color: "var(--editor-operator)" },
+  { tag: tags.heading, color: "var(--editor-keyword)", fontWeight: "bold" },
+  { tag: tags.strong, fontWeight: "bold" },
+  { tag: tags.emphasis, fontStyle: "italic" },
+]);
 
 /**
  * The markdown editor.
@@ -45,7 +59,7 @@ export function Editor({
           highlightActiveLine(),
           history(),
           markdown(),
-          syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+          syntaxHighlighting(editorHighlightStyle, { fallback: true }),
           // indentWithTab last: Tab should indent here rather than leave the editor.
           keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
           EditorView.lineWrapping,
