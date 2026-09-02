@@ -138,8 +138,8 @@ export function App(): ReactElement {
       <Cvss
         vector={vector}
         onChange={setVector}
-        onApply={(risk, applied) => {
-          setMarkdown((current) => applyScore(current, risk, applied));
+        onApply={(risk, vector, calculatorUrl) => {
+          setMarkdown((current) => applyScore(current, risk, vector, calculatorUrl));
           setStatus(`Scored ${risk}.`);
         }}
       />

@@ -8,11 +8,11 @@ const SKELETON = ["## Title", "", "### Risk:", "", "### Technical Details", "", 
   "\n"
 );
 
-const LINK =
-  "<https://nvd.nist.gov/vuln-metrics/cvss/v3-calculator?vector=CVSS:3.1/AV:N&version=3.1>";
+const VECTOR = "CVSS:3.1/AV:N";
+const URL = "https://nvd.nist.gov/vuln-metrics/cvss/v3-calculator?vector=CVSS:3.1/AV:N&version=3.1";
 
 test("the score fills in the existing Risk heading, keeping its level", () => {
-  const result = applyScore(SKELETON, "High (7.8)", LINK);
+  const result = applyScore(SKELETON, "High (7.8)", VECTOR, URL);
 
   assert.ok(result.includes("### Risk: High (7.8)"));
   assert.ok(!result.includes("### Risk:\n"), "the empty heading is gone");
@@ -20,7 +20,7 @@ test("the score fills in the existing Risk heading, keeping its level", () => {
 
 test("what it writes is what the report parser reads back", () => {
   // The whole point: the calculator has to produce a heading severity.ts accepts.
-  const result = applyScore(SKELETON, "Critical (9.8)", LINK);
+  const result = applyScore(SKELETON, "Critical (9.8)", VECTOR, URL);
   const heading = result.split("\n").find((line) => line.includes("Risk:")) ?? "";
 
   assert.deepEqual(parseRisk(heading.replace(/^#+\s*/, "")), {
@@ -29,19 +29,19 @@ test("what it writes is what the report parser reads back", () => {
   });
 });
 
-test("the vector goes on the line below, as an autolink", () => {
-  const blocks = parseMarkdown(applyScore(SKELETON, "Low (2.0)", LINK));
+test("the vector goes on the line below as a labeled NVD link", () => {
+  const blocks = parseMarkdown(applyScore(SKELETON, "Low (2.0)", VECTOR, URL));
   const links = blocks.flatMap((block) =>
     "spans" in block ? block.spans.filter((span) => span.kind === "link") : []
   );
 
   assert.equal(links.length, 1, "one clickable vector");
-  assert.match(links[0].text, /^https:\/\/nvd\.nist\.gov/);
+  assert.deepEqual(links[0], { kind: "link", text: VECTOR, url: URL });
 });
 
 test("rescoring replaces the vector rather than stacking another", () => {
-  const once = applyScore(SKELETON, "Low (2.0)", LINK);
-  const twice = applyScore(once, "High (7.5)", LINK);
+  const once = applyScore(SKELETON, "Low (2.0)", VECTOR, URL);
+  const twice = applyScore(once, "High (7.5)", VECTOR, URL);
 
   assert.equal(twice.match(/nvd\.nist\.gov/g)?.length, 1);
   assert.ok(twice.includes("### Risk: High (7.5)"));
@@ -49,7 +49,7 @@ test("rescoring replaces the vector rather than stacking another", () => {
 });
 
 test("a finding with no Risk heading gains one rather than losing the score", () => {
-  const result = applyScore("## Title\n\nJust prose.", "Medium (5.4)", LINK);
+  const result = applyScore("## Title\n\nJust prose.", "Medium (5.4)", VECTOR, URL);
 
   assert.ok(result.includes("### Risk: Medium (5.4)"));
   assert.ok(result.includes("nvd.nist.gov"));
@@ -57,6 +57,6 @@ test("a finding with no Risk heading gains one rather than losing the score", ()
 });
 
 test("a heading at another depth keeps that depth", () => {
-  const result = applyScore("# Finding\n\n## Risk:\n", "High (8.1)", LINK);
+  const result = applyScore("# Finding\n\n## Risk:\n", "High (8.1)", VECTOR, URL);
   assert.ok(result.includes("## Risk: High (8.1)"), "not forced to ###");
 });

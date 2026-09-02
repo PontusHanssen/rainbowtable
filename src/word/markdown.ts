@@ -1,7 +1,7 @@
 /**
  * A small markdown parser, covering exactly what a finding needs: headings, paragraphs,
- * bold, italic, inline code, fenced code blocks, bullet and numbered lists, and autolinks
- * written `<https://example.com>`.
+ * bold, italic, inline code, fenced code blocks, bullet and numbered lists, autolinks
+ * written `<https://example.com>`, and links written `[label](https://example.com)`.
  *
  * Deliberately not CommonMark. Tables, images, blockquotes, reference links and nested
  * lists are out of scope; anything unrecognised stays literal text rather than being
@@ -25,10 +25,11 @@ export type Block =
 /**
  * One pass over the line, trying each construct at each position.
  *
- * Order matters: code first, so backticked text is never re-read as emphasis; then
- * autolinks; then bold before italic, or `**bold**` would be taken as two italics.
+ * Order matters: code first, so backticked text is never re-read as emphasis; then links;
+ * then bold before italic, or `**bold**` would be taken as two italics.
  */
-const INLINE = /`([^`]+)`|<((?:https?:\/\/|mailto:)[^>\s]+)>|\*\*([^*]+)\*\*|\*([^*\n]+)\*/g;
+const INLINE =
+  /`([^`]+)`|<((?:https?:\/\/|mailto:)[^>\s]+)>|\[([^\]\n]+)\]\(((?:https?:\/\/|mailto:)[^)\s]+)\)|\*\*([^*]+)\*\*|\*([^*\n]+)\*/g;
 
 export function parseInline(text: string): Inline[] {
   const spans: Inline[] = [];
@@ -46,9 +47,11 @@ export function parseInline(text: string): Inline[] {
     } else if (match[2] !== undefined) {
       spans.push({ kind: "link", text: match[2], url: match[2] });
     } else if (match[3] !== undefined) {
-      spans.push({ kind: "bold", text: match[3] });
+      spans.push({ kind: "link", text: match[3], url: match[4] });
+    } else if (match[5] !== undefined) {
+      spans.push({ kind: "bold", text: match[5] });
     } else {
-      spans.push({ kind: "italic", text: match[4] });
+      spans.push({ kind: "italic", text: match[6] });
     }
 
     last = match.index + match[0].length;

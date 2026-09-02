@@ -29,7 +29,7 @@ export function Cvss({
 }: {
   vector: CvssVector;
   onChange: (vector: CvssVector) => void;
-  onApply: (risk: string, vector: string) => void;
+  onApply: (risk: string, vector: string, calculatorUrl: string) => void;
 }): ReactElement {
   const score = baseScore(vector);
   const severity = severityFor(score);
@@ -71,7 +71,9 @@ export function Cvss({
         <span className="vector">{formatVector(vector)}</span>
         <button
           type="button"
-          onClick={() => onApply(`${severity} (${score.toFixed(1)})`, `<${calculatorUrl(vector)}>`)}
+          onClick={() =>
+            onApply(`${severity} (${score.toFixed(1)})`, formatVector(vector), calculatorUrl(vector))
+          }
         >
           Put in finding
         </button>

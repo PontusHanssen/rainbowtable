@@ -84,6 +84,16 @@ test("autolinks become links carrying their own text", () => {
   ]);
 });
 
+test("labeled links keep a concise label separate from their address", () => {
+  assert.deepEqual(parseInline("[CVSS:3.1/AV:N](https://nvd.nist.gov/vuln-metrics/cvss/v3-calculator?vector=CVSS:3.1/AV:N&version=3.1)"), [
+    {
+      kind: "link",
+      text: "CVSS:3.1/AV:N",
+      url: "https://nvd.nist.gov/vuln-metrics/cvss/v3-calculator?vector=CVSS:3.1/AV:N&version=3.1",
+    },
+  ]);
+});
+
 test("angle brackets that are not links stay literal", () => {
   assert.deepEqual(parseInline("<not a link>"), [{ kind: "text", text: "<not a link>" }]);
   assert.deepEqual(parseInline("a < b"), [{ kind: "text", text: "a < b" }]);
