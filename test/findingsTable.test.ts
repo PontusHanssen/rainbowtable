@@ -106,6 +106,21 @@ test("rows carry the severity, score and number of each finding", () => {
   );
 });
 
+test('rows keep unreadable text after "Risk:" for table fallback rendering', () => {
+  const headings = toHeadings(templateParagraphs);
+  const position = headings.findIndex((h) => h.text === "Weaknesses" && h.level === 1);
+  const blocks = buildBlocks(
+    headings,
+    position,
+    childHeadings(headings, position),
+    templateParagraphs.length
+  );
+
+  const rows = buildRows(headings, "Weaknesses", blocks);
+  assert.equal(rows[0].severity, undefined);
+  assert.equal(rows[0].unreadableRisk, "[TODO]");
+});
+
 test("the # and Title cells are hyperlinked REF fields with cached results", () => {
   const xml = buildFindingsTable([row()]);
 
@@ -175,6 +190,20 @@ test("a finding with no readable risk is still listed, without severity or score
   assert.ok(xml.includes(">—<"), "severity shows a dash");
   assert.ok(xml.includes('<w:color w:val="808080"/>'), "unrated severity is shown in grey");
   assert.ok(xml.includes(">Weak transport layer security<"), "the finding is still in the table");
+});
+
+test('an unreadable "Risk:" value is shown in grey in the severity cell', () => {
+  const xml = buildFindingsTable([
+    row({ severity: undefined, unreadableRisk: "[TODO]", score: undefined }),
+  ]);
+
+  assert.ok(xml.includes(">[TODO]<"), 'uses the text after "Risk:" when present');
+  assert.ok(xml.includes('<w:color w:val="808080"/>'), "unrated severity text is grey");
+});
+
+test('a broken "Risk:" line still falls back to a dash', () => {
+  const xml = buildFindingsTable([row({ severity: undefined, unreadableRisk: "   " })]);
+  assert.ok(xml.includes(">—<"));
 });
 
 test("scores render with one decimal, the CVSS convention", () => {

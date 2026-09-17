@@ -18,6 +18,7 @@ export interface FindingRow {
   /** Cached field result, e.g. "4.2". Word recomputes it when fields update. */
   number: string;
   severity?: Severity;
+  unreadableRisk?: string;
   score?: number;
   title: string;
 }
@@ -150,9 +151,10 @@ function headerRow(): string {
 }
 
 function findingRow(row: FindingRow): string {
+  const unrated = row.unreadableRisk && row.unreadableRisk.trim().length > 0 ? row.unreadableRisk : "—";
   const severityRun = row.severity
     ? run(row.severity, `<w:rStyle w:val="${SEVERITY_STYLES[row.severity]}"/>`)
-    : run("—", '<w:color w:val="808080"/>');
+    : run(unrated, '<w:color w:val="808080"/>');
 
   return (
     "<w:tr>" +
@@ -230,6 +232,7 @@ export function buildRows(
       bookmark: existing[i] ?? bookmarkName(sectionTitle, block.heading.text, occurrence),
       number: headingNumber(headings, headings.indexOf(block.heading)),
       severity: block.risk?.severity,
+      unreadableRisk: block.unreadableRisk,
       score: block.risk?.score,
       title: block.heading.text,
     };
