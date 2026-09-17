@@ -146,7 +146,7 @@ export function setUpFindingsPanel(): void {
           ? `Sorted ${plural(result.sorted, "finding")} by severity.`
           : "Already in severity order — nothing changed."
       );
-      feedback.warnings(result.skipped.map((finding) => `Left in place: ${describe(finding)}`));
+      feedback.warnings(result.skipped.map((finding) => `Moved to the end (unrated): ${describe(finding)}`));
       setUndoable(
         result.snapshot
           ? { kind: "sort", section, snapshot: result.snapshot, written: result.written }
@@ -243,7 +243,7 @@ export function setUpFindingsPanel(): void {
           "undo cannot reach it — use the Undo button here instead." +
           (preview.skipped.length > 0
             ? ` ${plural(preview.skipped.length, "finding")} above cannot be rated and will ` +
-              "stay where they are."
+             "be moved to the end."
             : ""),
         "Sort the findings"
       );

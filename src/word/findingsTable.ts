@@ -152,7 +152,7 @@ function headerRow(): string {
 function findingRow(row: FindingRow): string {
   const severityRun = row.severity
     ? run(row.severity, `<w:rStyle w:val="${SEVERITY_STYLES[row.severity]}"/>`)
-    : run("—");
+    : run("—", '<w:color w:val="808080"/>');
 
   return (
     "<w:tr>" +

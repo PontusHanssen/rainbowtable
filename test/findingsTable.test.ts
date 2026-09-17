@@ -173,6 +173,7 @@ test("a finding with no readable risk is still listed, without severity or score
   const xml = buildFindingsTable([row({ severity: undefined, score: undefined })]);
 
   assert.ok(xml.includes(">—<"), "severity shows a dash");
+  assert.ok(xml.includes('<w:color w:val="808080"/>'), "unrated severity is shown in grey");
   assert.ok(xml.includes(">Weak transport layer security<"), "the finding is still in the table");
 });
 
