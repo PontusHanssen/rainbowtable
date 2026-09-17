@@ -151,7 +151,8 @@ function headerRow(): string {
 }
 
 function findingRow(row: FindingRow): string {
-  const unrated = row.unreadableRisk && row.unreadableRisk.trim().length > 0 ? row.unreadableRisk : "—";
+  const unrated =
+    row.unreadableRisk && row.unreadableRisk.trim().length > 0 ? row.unreadableRisk : "—";
   const severityRun = row.severity
     ? run(row.severity, `<w:rStyle w:val="${SEVERITY_STYLES[row.severity]}"/>`)
     : run(unrated, '<w:color w:val="808080"/>');
