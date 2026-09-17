@@ -48,15 +48,16 @@ test("scored findings precede unscored ones of the same severity, stably", () =>
   );
 });
 
-test("unreadable findings hold their slot while the rest sort around them", () => {
+test("unreadable findings are moved to the end, preserving their own order", () => {
   const items = [
     { id: "low", risk: parseRisk("Risk: Low (1.0)") },
     { id: "todo", risk: undefined },
     { id: "crit", risk: parseRisk("Risk: Critical (9.9)") },
+    { id: "missing", risk: undefined },
   ];
   assert.deepEqual(
     planOrder(items).map((item) => item.id),
-    ["crit", "todo", "low"]
+    ["crit", "low", "todo", "missing"]
   );
 });
 

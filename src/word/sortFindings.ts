@@ -18,7 +18,7 @@ export interface SortPreview {
   changed: boolean;
   /** How many findings would take part in the sort. */
   sorted: number;
-  /** Findings whose risk rating could not be read; they stay where they are. */
+  /** Findings whose risk rating could not be read; they are moved to the end. */
   skipped: SkippedFinding[];
   /**
    * The findings in the order the sort would leave them, for the task pane to show
@@ -40,16 +40,15 @@ export interface SortResult extends SortPreview {
 /**
  * The order the findings should end up in.
  *
- * Findings whose risk could not be read keep their slot: the sortable ones are
- * rearranged among the positions they already occupy, and everything else stays put.
- * Exported for testing.
+ * Findings whose risk could not be read are moved to the end, preserving their own
+ * relative order there. Exported for testing.
  */
 export function planOrder<T extends { risk?: Risk }>(findings: T[]): T[] {
   const sortable = findings.filter((finding) => finding.risk !== undefined);
+  const unreadable = findings.filter((finding) => finding.risk === undefined);
   const ordered = [...sortable].sort((a, b) => compareRisk(a.risk as Risk, b.risk as Risk));
 
-  let next = 0;
-  return findings.map((finding) => (finding.risk === undefined ? finding : ordered[next++]));
+  return [...ordered, ...unreadable];
 }
 
 /**

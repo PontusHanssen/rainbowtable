@@ -14,6 +14,7 @@ export interface Block {
   start: number;
   end: number;
   risk?: Risk;
+  unreadableRisk?: string;
   skipReason?: string;
 }
 
@@ -148,6 +149,7 @@ export function buildBlocks(
     if ("risk" in rating) {
       block.risk = rating.risk;
     } else {
+      block.unreadableRisk = rating.unreadableRisk;
       block.skipReason = rating.reason;
     }
     return block;
@@ -155,7 +157,10 @@ export function buildBlocks(
 }
 
 /** The risk of a finding, read from its own child headings. */
-function readRisk(headings: Heading[], finding: Heading): { risk: Risk } | { reason: string } {
+function readRisk(
+  headings: Heading[],
+  finding: Heading
+): { risk: Risk } | { reason: string; unreadableRisk?: string } {
   const children = childHeadings(headings, headings.indexOf(finding));
 
   for (const child of children) {
@@ -170,5 +175,15 @@ function readRisk(headings: Heading[], finding: Heading): { risk: Risk } | { rea
     reason: malformed
       ? `"${malformed.text}" is not of the form "Risk: <Severity> (<score>)"`
       : `no "Risk:" heading`,
+    unreadableRisk: malformed ? unreadableRiskText(malformed.text) : undefined,
   };
+}
+
+function unreadableRiskText(text: string): string | undefined {
+  const match = /^Risk\s*:\s*(.*)$/i.exec(text.replace(/\u00a0/g, " ").trim());
+  if (!match) {
+    return undefined;
+  }
+  const value = match[1].trim();
+  return value.length > 0 ? value : undefined;
 }
